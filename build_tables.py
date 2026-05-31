@@ -140,21 +140,26 @@ def build_games(conn: sqlite3.Connection):
 # ---------------------------------------------------------------------------
 # Build shots and shot_outcomes from PBP + shotchartdetail
 # ---------------------------------------------------------------------------
-def _link_fts_for_foul(pbp_df: pd.DataFrame, foul_idx: int) -> list[int]:
-    """Walk forward from a foul to find the free throws it produced."""
+def _link_fts_for_foul(pbp_df: pd.DataFrame, foul_idx: int, shot_idx: int) -> list[int]:
+    """Walk forward from a foul to find the free throws it produced.
+
+    Skips the shot event itself (foul may be logged before or after the shot
+    in play-by-play order).
+    """
     fts = []
     period = pbp_df.at[foul_idx, "period"]
     for j in range(foul_idx + 1, min(foul_idx + 30, len(pbp_df))):
+        if j == shot_idx:
+            continue
         ev = pbp_df.iloc[j]
         if ev["period"] != period:
             break
         if ev["actionType"] == "Free Throw" and not pd.isna(ev["personId"]):
             fts.append(j)
-        elif ev["actionType"] in ("Made Shot", "Missed Shot", "Rebound",
-                                   "Turnover", "Jump Ball", "Foul",
+        elif ev["actionType"] in ("Made Shot", "Missed Shot", "Foul",
                                    "EndOfPeriod", "period"):
             break
-        # Substitutions and timeouts can happen between FTs, skip
+        # Skip Rebounds, Turnovers, Jump Ball, Substitutions, Timeouts
     return fts
 
 
@@ -233,7 +238,7 @@ def build_shots_and_outcomes(conn: sqlite3.Connection, game_ids: list[str] | Non
             if foul_idx is not None:
                 drew_shooting_foul = 1
                 foul = pbp.iloc[foul_idx]
-                fts = _link_fts_for_foul(pbp, foul_idx)
+                fts = _link_fts_for_foul(pbp, foul_idx, fga_idx)
 
                 if shot_made and len(fts) == 1:
                     # And-1: made shot + 1 FT
