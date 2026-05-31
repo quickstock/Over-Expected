@@ -506,7 +506,8 @@ with tab_methodology:
     st.markdown(
         "<p style='font-size:0.9375rem; line-height:1.65; color:var(--text-secondary); margin-bottom:1rem;'>"
         "A well-calibrated model means that when it predicts 2% foul rate, the actual foul rate is about 2% in the long run. "
-        "Below, shots are sorted into ten equal buckets (deciles) by predicted xFTA. Each point shows the average predicted vs actual foul rate inside that bucket. "
+        "Below, player-seasons are sorted into ten equal buckets (deciles) by average predicted xFTA. "
+        "Each point shows the average predicted rate against the actual rate from Basketball Reference season totals. "
         "The closer the points hug the diagonal, the more trustworthy the predictions."
         "</p>",
         unsafe_allow_html=True,
@@ -587,7 +588,8 @@ with tab_methodology:
     st.markdown(
         "<p style='font-size:0.9375rem; line-height:1.65; color:var(--text-secondary); margin-bottom:1rem;'>"
         "A model can look well-calibrated globally while being off in specific zones. "
-        "Check each zone to see whether the predictions hold up in the corners, the paint, and beyond the arc."
+        "Check each zone to see whether the predictions hold up in the corners, the paint, and beyond the arc. "
+        "Actuals are player-season FTA rates from Basketball Reference."
         "</p>",
         unsafe_allow_html=True,
     )

@@ -157,22 +157,44 @@ def get_player_season_summary(conn: sqlite3.Connection, player_id: int, season: 
 
 
 def get_calibration_data(conn: sqlite3.Connection) -> pd.DataFrame:
-    """Global calibration: predicted xFTA deciles vs actual FTA."""
+    """Global calibration: predicted xFTA deciles vs actual FTA (player-season level).
+
+    Validates the model at the player-season grain using corrected actual FTA
+    from basketball-reference, which fixes the undercount in play-by-play
+    shooting-foul linkage.
+    """
     if "training_fga" not in get_table_names(conn):
         return pd.DataFrame()
 
     query = """
-    WITH ranked AS (
-        SELECT xfta, fta_from_shot,
-               NTILE(10) OVER (ORDER BY xfta) AS decile
-        FROM training_fga
-        WHERE xfta IS NOT NULL AND fta_from_shot IS NOT NULL
+    WITH pred AS (
+        SELECT tf.player_id, tf.season, p.xfta
+        FROM training_fga tf
+        JOIN predictions p ON tf.game_id = p.game_id AND tf.event_id = p.event_id
+    ),
+    ps AS (
+        SELECT player_id, season,
+               AVG(xfta) AS predicted_rate,
+               SUM(xfta) AS predicted_total,
+               COUNT(*) AS fga
+        FROM pred
+        GROUP BY player_id, season
+    ),
+    ranked AS (
+        SELECT ps.predicted_rate,
+               (psx.actual_fta_from_fouls * 1.0 / ps.fga) AS actual_rate,
+               ps.fga,
+               NTILE(10) OVER (ORDER BY ps.predicted_rate) AS decile
+        FROM ps
+        JOIN player_season_xfta psx
+          ON ps.player_id = psx.player_id AND ps.season = psx.season
+        WHERE ps.fga > 0 AND psx.actual_fta_from_fouls IS NOT NULL
     )
     SELECT
         decile,
-        AVG(xfta) AS predicted,
-        AVG(fta_from_shot) AS actual,
-        COUNT(*) AS n
+        AVG(predicted_rate) AS predicted,
+        AVG(actual_rate) AS actual,
+        SUM(fga) AS n
     FROM ranked
     GROUP BY decile
     ORDER BY decile
@@ -181,25 +203,47 @@ def get_calibration_data(conn: sqlite3.Connection) -> pd.DataFrame:
 
 
 def get_zone_calibration(conn: sqlite3.Connection) -> pd.DataFrame:
-    """Per-zone calibration data."""
+    """Per-zone calibration using corrected player-season actuals.
+
+    For each zone, compares the model's average predicted xFTA against the
+    player's true season FTA rate (from basketball-reference). This is a
+    coarser check than shot-level calibration but avoids the PBP undercount.
+    """
     if "training_fga" not in get_table_names(conn):
         return pd.DataFrame()
 
     query = """
-    WITH ranked AS (
-        SELECT tf.xfta, tf.fta_from_shot, s.shot_zone_basic,
-               NTILE(10) OVER (PARTITION BY s.shot_zone_basic ORDER BY tf.xfta) AS decile
+    WITH pred AS (
+        SELECT tf.player_id, tf.season, p.xfta, s.shot_zone_basic
         FROM training_fga tf
+        JOIN predictions p ON tf.game_id = p.game_id AND tf.event_id = p.event_id
         JOIN shots s ON tf.game_id = s.game_id AND tf.event_id = s.event_id
-        WHERE tf.xfta IS NOT NULL AND tf.fta_from_shot IS NOT NULL
-          AND s.shot_zone_basic IS NOT NULL
+        WHERE p.xfta IS NOT NULL AND s.shot_zone_basic IS NOT NULL
+    ),
+    ps_zone AS (
+        SELECT player_id, season, shot_zone_basic,
+               AVG(xfta) AS predicted_rate,
+               COUNT(*) AS fga
+        FROM pred
+        GROUP BY player_id, season, shot_zone_basic
+    ),
+    ranked AS (
+        SELECT pz.predicted_rate, pz.shot_zone_basic AS zone,
+               (psx.actual_fta_from_fouls * 1.0 / psx.fga) AS actual_rate,
+               pz.fga,
+               NTILE(10) OVER (PARTITION BY pz.shot_zone_basic
+                                ORDER BY pz.predicted_rate) AS decile
+        FROM ps_zone pz
+        JOIN player_season_xfta psx
+          ON pz.player_id = psx.player_id AND pz.season = psx.season
+        WHERE pz.fga > 0 AND psx.actual_fta_from_fouls IS NOT NULL
+          AND psx.fga > 0
     )
     SELECT
-        shot_zone_basic AS zone,
-        decile,
-        AVG(xfta) AS predicted,
-        AVG(fta_from_shot) AS actual,
-        COUNT(*) AS n
+        zone, decile,
+        AVG(predicted_rate) AS predicted,
+        AVG(actual_rate) AS actual,
+        SUM(fga) AS n
     FROM ranked
     GROUP BY zone, decile
     ORDER BY zone, decile
