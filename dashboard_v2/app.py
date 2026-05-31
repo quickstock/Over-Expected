@@ -305,7 +305,7 @@ with tab_leaderboard:
             height=max(400, display_n * 26),
             xaxis=dict(
                 title="FTAOE per 100 FGA",
-                titlefont=dict(family="Inter", size=12, color="#78716C"),
+                title_font=dict(family="Inter", size=12, color="#78716C"),
                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                 zeroline=True,
                 zerolinecolor="rgba(255,255,255,0.15)",
@@ -319,7 +319,6 @@ with tab_leaderboard:
             showlegend=False,
             hoverlabel=dict(
                 bgcolor="#292524",
-                bordercolor="rgba(255,255,255,0.1)",
                 font=dict(family="Inter", size=13, color="#E7E5E4"),
             ),
         )
@@ -449,7 +448,7 @@ with tab_shotchart:
                             xaxis=dict(title="", tickfont=dict(family="Inter", size=12, color="#A8A29E")),
                             yaxis=dict(
                                 title="FTAOE/100",
-                                titlefont=dict(family="Inter", size=11, color="#78716C"),
+                                title_font=dict(family="Inter", size=11, color="#78716C"),
                                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                                 zeroline=True,
                                 zerolinecolor="rgba(255,255,255,0.15)",
@@ -547,7 +546,7 @@ with tab_methodology:
             height=400,
             xaxis=dict(
                 title="Predicted xFTA",
-                titlefont=dict(family="Inter", size=12, color="#78716C"),
+                title_font=dict(family="Inter", size=12, color="#78716C"),
                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                 gridcolor="rgba(255,255,255,0.06)",
                 zerolinecolor="rgba(255,255,255,0.1)",
@@ -555,7 +554,7 @@ with tab_methodology:
             ),
             yaxis=dict(
                 title="Actual FTA rate",
-                titlefont=dict(family="Inter", size=12, color="#78716C"),
+                title_font=dict(family="Inter", size=12, color="#78716C"),
                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                 gridcolor="rgba(255,255,255,0.06)",
                 zerolinecolor="rgba(255,255,255,0.1)",
@@ -566,7 +565,6 @@ with tab_methodology:
             showlegend=False,
             hoverlabel=dict(
                 bgcolor="#292524",
-                bordercolor="rgba(255,255,255,0.1)",
                 font=dict(family="Inter", size=13, color="#E7E5E4"),
             ),
         )
@@ -633,7 +631,7 @@ with tab_methodology:
             height=400,
             xaxis=dict(
                 title="Predicted xFTA",
-                titlefont=dict(family="Inter", size=12, color="#78716C"),
+                title_font=dict(family="Inter", size=12, color="#78716C"),
                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                 gridcolor="rgba(255,255,255,0.06)",
                 zerolinecolor="rgba(255,255,255,0.1)",
@@ -641,7 +639,7 @@ with tab_methodology:
             ),
             yaxis=dict(
                 title="Actual FTA rate",
-                titlefont=dict(family="Inter", size=12, color="#78716C"),
+                title_font=dict(family="Inter", size=12, color="#78716C"),
                 tickfont=dict(family="IBM Plex Mono", size=11, color="#A8A29E"),
                 gridcolor="rgba(255,255,255,0.06)",
                 zerolinecolor="rgba(255,255,255,0.1)",
@@ -652,7 +650,6 @@ with tab_methodology:
             showlegend=False,
             hoverlabel=dict(
                 bgcolor="#292524",
-                bordercolor="rgba(255,255,255,0.1)",
                 font=dict(family="Inter", size=13, color="#E7E5E4"),
             ),
         )
