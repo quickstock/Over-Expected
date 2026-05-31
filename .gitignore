@@ -1,0 +1,37 @@
+# Large uncompressed database (compressed .gz is committed instead)
+xfta.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter
+.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Streamlit
+.streamlit/
+
+# Local screenshots (generated, not source)
+dashboard_v2/screenshots/
+
+# Local cache
+cache/
+*.cache
+
+# Logs
+*.log

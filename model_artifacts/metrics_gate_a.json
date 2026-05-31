@@ -1,0 +1,11 @@
+{
+  "gate": "A",
+  "train_size": 432269,
+  "test_size": 217738,
+  "train_poisson_deviance": 97647.18,
+  "test_poisson_deviance": 45063.29,
+  "baseline_poisson_deviance": 55514.51,
+  "baseline_mean_fta": 0.032112,
+  "lift_vs_baseline_pct": 18.83,
+  "best_iteration": 217
+}
