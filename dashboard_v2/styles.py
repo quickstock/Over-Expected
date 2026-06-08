@@ -1,333 +1,755 @@
-"""CSS design system for xFTA dashboard v2.
+"""CSS design system — Apple Sport Analytics / bento / true dark.
 
-Inject this at the top of every page run via st.markdown(..., unsafe_allow_html=True).
+On top of the existing data layer. Diverging FTAOE scale is unchanged.
+One accent (brand orange) for chrome only. Glass cards over a near-black
+ground. Premium sans, tabular numerals, restrained motion.
 """
 
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
 
 /* ================================================================
-   ROOT VARIABLES
+   ROOT — midnight-slate ground, single accent, diverging data scale
    ================================================================ */
 :root {
-    --orange: #E8600A;
-    --orange-light: #F08A4A;
-    --orange-dark: #C44E00;
-    --teal: #0D9488;
-    --teal-light: #2DD4BF;
-    --teal-dark: #0F766E;
-    --charcoal: #1C1917;
-    --charcoal-light: #292524;
-    --cream: #FAF7F2;
-    --cream-dark: #EDE9E3;
-    --text-primary: #E7E5E4;
-    --text-secondary: #A8A29E;
-    --text-muted: #78716C;
-    --positive: #E8600A;
-    --negative: #0D9488;
+    /* Ground */
+    --ground:        #0B0F19;     /* midnight slate, true dark */
+    --surface:       rgba(255, 255, 255, 0.04);   /* glass base */
+    --surface-hi:    rgba(255, 255, 255, 0.06);   /* glass hover */
+    --surface-2:     rgba(255, 255, 255, 0.025);  /* glass recessed */
+    --rule:          rgba(255, 255, 255, 0.08);   /* hairlines */
+    --rule-soft:     rgba(255, 255, 255, 0.04);
+
+    /* Type */
+    --ink:           #F5F6F8;
+    --ink-2:         rgba(245, 246, 248, 0.72);
+    --ink-3:         rgba(245, 246, 248, 0.48);
+    --ink-4:         rgba(245, 246, 248, 0.32);
+
+    /* Brand accent — chrome only (links, the brand mark, the prov dot) */
+    --accent:        #E8600A;
+    --accent-soft:   #C44E00;
+
+    /* === FTAOE diverging scale — unchanged. Warm pole is deeper than brand. */
+    --delta-warm-3:  #9C2E04;
+    --delta-warm-2:  #C2420A;
+    --delta-warm-1:  #E48A50;
+    --delta-zero:    #2E2E32;
+    --delta-cool-1:  #6FA8B8;
+    --delta-cool-2:  #2D7A8C;
+    --delta-cool-3:  #11404C;
+
+    /* Numeric type */
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+
+    /* Glass tokens */
+    --glass-blur:   24px;
+    --glass-radius: 20px;
+    --glass-radius-sm: 14px;
+    --shadow-1: 0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 32px rgba(0,0,0,0.32);
+    --shadow-2: 0 1px 0 rgba(255,255,255,0.06) inset, 0 16px 48px rgba(0,0,0,0.4);
 }
 
 /* ================================================================
-   GLOBAL RESET
+   RESET / GLOBAL
    ================================================================ */
 html, body, .stApp {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    background-color: var(--charcoal) !important;
-    color: var(--text-primary) !important;
+    font-family: var(--sans) !important;
+    background-color: var(--ground) !important;
+    color: var(--ink) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
 }
 
-/* Kill Streamlit's top padding */
 .block-container {
-    padding-top: 1.5rem !important;
-    padding-bottom: 2rem !important;
-    max-width: 1200px !important;
-}
-
-/* Override Streamlit's default top bar / header */
-.stApp header[data-testid="stHeader"] {
-    background-color: var(--charcoal) !important;
-    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-}
-.stApp header[data-testid="stHeader"] * {
-    color: var(--text-secondary) !important;
-}
-
-/* Override Streamlit's top-level background */
-.stApp > div:first-child {
-    background-color: var(--charcoal) !important;
-}
-
-/* Deploy button hide */
-.stDeployButton,
-[data-testid="stDeployButton"],
-button[kind="deploy"] {
-    display: none !important;
-}
-
-/* Hide Streamlit top-right menu */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
-
-/* Ensure tab list sits flush under any header */
-.stTabs {
-    margin-top: 0.5rem !important;
-}
-
-/* Make tab text more legible */
-.stTabs [data-baseweb="tab"] p {
-    color: inherit !important;
-    font-size: inherit !important;
+    padding-top: 2.5rem !important;
+    padding-bottom: 5rem !important;
+    max-width: 1240px !important;
 }
 
 /* ================================================================
-   SIDEBAR
+   HIDE ALL STREAMLIT CHROME
    ================================================================ */
-section[data-testid="stSidebar"] {
-    background-color: var(--charcoal) !important;
-    border-right: 1px solid rgba(255,255,255,0.06) !important;
-}
-section[data-testid="stSidebar"] > div {
-    background-color: var(--charcoal) !important;
-}
-section[data-testid="stSidebar"] .stMarkdown {
-    color: var(--text-secondary) !important;
-}
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: var(--text-primary) !important;
-    font-family: 'DM Serif Display', serif !important;
+.stApp header[data-testid="stHeader"],
+.stApp [data-testid="stToolbar"],
+#MainMenu, footer, .stDeployButton,
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"] {
+    display: none !important;
+    visibility: hidden !important;
 }
 
-/* Sidebar logo mark */
-.xfta-logo {
-    font-family: 'DM Serif Display', serif !important;
-    font-size: 2rem;
-    color: var(--orange);
-    letter-spacing: -0.02em;
-    line-height: 1;
-    margin-bottom: 0.25rem;
-}
-.xfta-tagline {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-}
-
-/* ================================================================
-   TABS
-   ================================================================ */
-.stTabs [data-baseweb="tab-list"] {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-    gap: 0 !important;
-}
-.stTabs [data-baseweb="tab"] {
-    background-color: transparent !important;
-    border: none !important;
-    color: var(--text-muted) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.8125rem !important;
-    font-weight: 500 !important;
-    letter-spacing: 0.02em;
-    padding: 0.75rem 1.25rem !important;
-    margin: 0 !important;
-    border-bottom: 2px solid transparent !important;
-    transition: color 0.15s ease, border-color 0.15s ease;
-}
-.stTabs [data-baseweb="tab"]:hover {
-    color: var(--text-secondary) !important;
-}
-.stTabs [aria-selected="true"] {
-    color: var(--orange) !important;
-    border-bottom-color: var(--orange) !important;
+/* Subtle ambient gradient at top — gives the dark surface depth without
+   being a wallpaper */
+.stApp::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(232,96,10,0.06), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(45,122,140,0.05), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* ================================================================
    TYPOGRAPHY
    ================================================================ */
 h1, h2, h3, h4 {
-    font-family: 'DM Serif Display', serif !important;
-    color: var(--text-primary) !important;
-    letter-spacing: -0.01em;
-    font-weight: 400 !important;
+    font-family: var(--sans) !important;
+    color: var(--ink) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
 }
-h1 { font-size: 2.25rem !important; margin-bottom: 0.5rem !important; }
-h2 { font-size: 1.75rem !important; margin-bottom: 0.75rem !important; }
-h3 { font-size: 1.25rem !important; margin-bottom: 0.5rem !important; }
+h1 { font-size: 3rem !important; }
+h2 { font-size: 1.75rem !important; }
+h3 { font-size: 1.25rem !important; }
+h4 { font-size: 1rem !important; font-weight: 600 !important; }
 
 p, li, label, .stMarkdown {
-    font-family: 'Inter', sans-serif !important;
-    color: var(--text-secondary) !important;
-    line-height: 1.65 !important;
+    font-family: var(--sans) !important;
+    color: var(--ink-2) !important;
+    line-height: 1.55 !important;
     font-size: 0.9375rem !important;
 }
 
-/* Monospace numbers */
-.mono-num {
-    font-family: 'IBM Plex Mono', monospace !important;
+.mono, .mono-num, code, kbd {
+    font-family: var(--mono) !important;
     font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum';
+    font-feature-settings: 'tnum' 1, 'zero' 1, 'ss01' 1;
 }
+
+/* The display numbers — massive, confident, tabular */
+.display {
+    font-family: var(--sans) !important;
+    font-size: 5.5rem !important;
+    line-height: 0.95;
+    font-weight: 700 !important;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'ss01' 1;
+}
+.display-md {
+    font-family: var(--sans) !important;
+    font-size: 3rem !important;
+    line-height: 1;
+    font-weight: 700 !important;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+.display-sm {
+    font-family: var(--sans) !important;
+    font-size: 1.75rem !important;
+    line-height: 1.05;
+    font-weight: 600 !important;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Eyebrow / micro-label */
+.eyebrow {
+    font-family: var(--sans) !important;
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-3) !important;
+}
+.eyebrow-sm {
+    font-family: var(--sans) !important;
+    font-size: 0.625rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-4) !important;
+}
+
+.caption {
+    font-family: var(--sans) !important;
+    font-size: 0.8125rem !important;
+    color: var(--ink-3) !important;
+    line-height: 1.55 !important;
+}
+
+/* ================================================================
+   GLASS CARDS — the bento primitive
+   ================================================================ */
+.glass {
+    background: var(--surface);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--rule);
+    border-radius: var(--glass-radius);
+    box-shadow: var(--shadow-1);
+    padding: 1.75rem;
+    transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.glass-sm {
+    background: var(--surface);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--rule);
+    border-radius: var(--glass-radius-sm);
+    box-shadow: var(--shadow-1);
+    padding: 1.25rem 1.5rem;
+}
+.glass:hover {
+    background: var(--surface-hi);
+    border-color: rgba(255,255,255,0.12);
+}
+.glass-recessed {
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--glass-radius-sm);
+    padding: 1rem 1.25rem;
+}
+
+/* ================================================================
+   BENTO GRID — the layout primitive
+   ================================================================ */
+.bento {
+    display: grid;
+    gap: 1rem;
+}
+.bento-3 {
+    grid-template-columns: 1.4fr 1fr 1fr;
+}
+.bento-2-1 {
+    grid-template-columns: 2fr 1fr;
+}
+.bento-1-2 {
+    grid-template-columns: 1fr 2fr;
+}
+@media (max-width: 980px) {
+    .bento-3, .bento-2-1, .bento-1-2 { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+section[data-testid="stSidebar"] {
+    background-color: rgba(11, 15, 25, 0.6) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-right: 1px solid var(--rule) !important;
+}
+section[data-testid="stSidebar"] > div {
+    background-color: transparent !important;
+    padding-top: 2rem !important;
+}
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] p {
+    color: var(--ink-2) !important;
+    font-size: 0.8125rem !important;
+}
+
+.brand-mark {
+    display: flex; align-items: baseline; gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+.brand-mark .mark {
+    font-family: var(--sans);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+.brand-mark .dot {
+    width: 7px; height: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    transform: translateY(-1px);
+    box-shadow: 0 0 12px rgba(232,96,10,0.5);
+}
+.brand-tagline {
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+}
+
+.sidebar-meta {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ================================================================
+   TABS — quiet underline, just ink
+   ================================================================ */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--rule) !important;
+    gap: 0 !important;
+    padding: 0 !important;
+}
+.stTabs [data-baseweb="tab"] {
+    background-color: transparent !important;
+    border: none !important;
+    color: var(--ink-3) !important;
+    font-family: var(--sans) !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0;
+    padding: 0.875rem 1.5rem !important;
+    margin: 0 !important;
+    border-bottom: 1px solid transparent !important;
+    transition: color 160ms ease, border-color 160ms ease;
+}
+.stTabs [data-baseweb="tab"]:hover { color: var(--ink) !important; }
+.stTabs [aria-selected="true"] {
+    color: var(--ink) !important;
+    border-bottom-color: var(--ink) !important;
+}
+.stTabs [data-baseweb="tab"] p { color: inherit !important; font-size: inherit !important; }
 
 /* ================================================================
    BUTTONS
    ================================================================ */
 .stButton > button {
-    background-color: var(--orange) !important;
-    color: #fff !important;
-    border: none !important;
-    border-radius: 6px !important;
-    font-family: 'Inter', sans-serif !important;
+    background-color: var(--surface) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 10px !important;
+    font-family: var(--sans) !important;
     font-weight: 600 !important;
     font-size: 0.8125rem !important;
-    padding: 0.5rem 1.25rem !important;
-    transition: background-color 0.15s ease, transform 0.05s ease;
+    padding: 0.5rem 1rem !important;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 .stButton > button:hover {
-    background-color: var(--orange-light) !important;
+    background-color: var(--surface-hi) !important;
+    border-color: rgba(255,255,255,0.18) !important;
 }
-.stButton > button:active {
-    transform: scale(0.98);
+.stButton > button:active { transform: scale(0.98); }
+.stDownloadButton > button {
+    background-color: var(--ink) !important;
+    color: var(--ground) !important;
+    border: 1px solid var(--ink) !important;
+    border-radius: 10px !important;
+    font-family: var(--sans) !important;
+    font-weight: 600 !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: opacity 160ms ease;
 }
+.stDownloadButton > button:hover { opacity: 0.88; }
 
 /* ================================================================
    INPUTS / SELECTS / SLIDERS
    ================================================================ */
+.stSelectbox label, .stSlider label, .stRadio label {
+    font-family: var(--sans) !important;
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-3) !important;
+}
 .stSelectbox > div > div,
-.stSlider > div > div {
-    background-color: var(--charcoal-light) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 6px !important;
-    color: var(--text-primary) !important;
+.stMultiSelect > div > div {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 10px !important;
+    color: var(--ink) !important;
+    font-family: var(--sans) !important;
+    font-size: 0.875rem !important;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    transition: border-color 160ms ease, background-color 160ms ease;
 }
+.stSelectbox > div > div:hover { border-color: rgba(255,255,255,0.18) !important; }
+.stSelectbox > div > div:focus-within { border-color: var(--ink) !important; }
+
 .stSlider [data-baseweb="slider"] [role="slider"] {
-    background-color: var(--orange) !important;
-    border-color: var(--orange) !important;
+    background-color: var(--ink) !important;
+    border-color: var(--ink) !important;
 }
-.stSlider [data-baseweb="slider"] [data-testid="stTickBar"] {
-    background-color: rgba(255,255,255,0.08) !important;
+.stSlider [data-baseweb="slider"] > div > div {
+    background-color: var(--ink-3) !important;
+}
+.stRadio [role="radiogroup"] { gap: 0.5rem; }
+.stRadio [role="radiogroup"] label {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 10px !important;
+    padding: 0.4375rem 0.9375rem !important;
+    color: var(--ink-2) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 0.8125rem !important;
+    transition: all 160ms ease;
+}
+.stRadio [role="radiogroup"] label:hover {
+    border-color: rgba(255,255,255,0.18) !important;
+    color: var(--ink) !important;
+}
+.stRadio [role="radiogroup"] label:has(input:checked) {
+    background-color: var(--ink) !important;
+    color: var(--ground) !important;
+    border-color: var(--ink) !important;
 }
 
 /* ================================================================
-   DATAFRAMES / TABLES
+   LEADERBOARD — gap plot rows
    ================================================================ */
-.stDataFrame {
-    font-family: 'IBM Plex Mono', monospace !important;
+.gap-table { width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; }
+.gap-row {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.gap-row:hover {
+    background: var(--surface-hi);
+    border-color: rgba(255,255,255,0.14);
+}
+.gap-row td {
+    padding: 1.125rem 1.25rem;
+    vertical-align: middle;
+}
+.gap-rank {
+    width: 56px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    border-radius: 20px 0 0 20px;
+}
+.gap-name {
+    font-family: var(--sans);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+}
+.gap-name .sub {
+    color: var(--ink-3);
+    font-size: 0.75rem;
+    font-weight: 400;
+    margin-left: 0.4rem;
+    letter-spacing: 0;
+}
+.gap-name .delta-sign {
+    font-family: var(--mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
     font-variant-numeric: tabular-nums;
 }
-.stDataFrame th {
-    background-color: var(--charcoal-light) !important;
-    color: var(--text-secondary) !important;
-    font-weight: 600 !important;
-    font-size: 0.75rem !important;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+.gap-name .delta-sign.pos { color: var(--delta-warm-2); }
+.gap-name .delta-sign.neg { color: var(--delta-cool-2); }
+
+.gap-plot { width: 100%; min-width: 220px; }
+.gap-plot svg { width: 100%; height: 36px; display: block; }
+
+.gap-num {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--ink-2);
+    white-space: nowrap;
 }
-.stDataFrame td {
-    color: var(--text-primary) !important;
-    font-size: 0.8125rem !important;
-    border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+.gap-num .val { color: var(--ink); font-weight: 600; }
+
+.gap-pctbar { width: 110px; padding-right: 1.25rem; border-radius: 0 20px 20px 0; }
+.gap-pctbar-track {
+    position: relative;
+    height: 4px;
+    background: var(--rule-soft);
+    border-radius: 2px;
+    overflow: hidden;
 }
-.stDataFrame tr:hover td {
-    background-color: rgba(232,96,10,0.04) !important;
+.gap-pctbar-fill {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    background: var(--ink);
+    border-radius: 2px;
+    transition: width 200ms ease;
+}
+.gap-pctbar-label {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink-3);
+    margin-top: 0.5rem;
+    text-align: right;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Mobile — collapse to rank + name + delta sign + plot */
+@media (max-width: 768px) {
+    .gap-hide-mobile { display: none !important; }
+    .gap-row td { padding: 0.875rem 0.625rem; }
+    .gap-name { font-size: 0.875rem; }
+    .gap-num { font-size: 0.75rem; }
+    .gap-pctbar { width: 64px; padding-right: 0.75rem; }
 }
 
 /* ================================================================
-   EXPANDER
+   PLAYER DETAIL — expanding bento
    ================================================================ */
-.streamlit-expanderHeader {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    color: var(--text-secondary) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 6px !important;
-    background-color: var(--charcoal-light) !important;
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 1rem;
 }
-.streamlit-expanderContent {
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-top: none !important;
-    border-radius: 0 0 6px 6px !important;
-    background-color: var(--charcoal) !important;
-}
+@media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
 
-/* ================================================================
-   METRICS
-   ================================================================ */
-[data-testid="stMetric"] {
-    background-color: var(--charcoal-light) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 8px !important;
-    padding: 1rem !important;
+.detail-headline {
+    font-family: var(--sans);
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    font-variant-numeric: tabular-nums;
+    margin: 0.75rem 0 0.5rem 0;
 }
-[data-testid="stMetric"] label {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.6875rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted) !important;
-}
-[data-testid="stMetric"] div:last-child {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 1.5rem !important;
-    font-weight: 600 !important;
-    color: var(--text-primary) !important;
-}
+.detail-headline.pos { color: var(--delta-warm-2); }
+.detail-headline.neg { color: var(--delta-cool-2); }
+.detail-headline.zero { color: var(--ink); }
 
-/* ================================================================
-   DIVIDERS / HELPERS
-   ================================================================ */
-hr {
-    border-color: rgba(255,255,255,0.08) !important;
-    margin: 1.5rem 0 !important;
+.detail-name {
+    font-family: var(--sans);
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 0.25rem 0;
+    line-height: 1.1;
 }
-
-/* Glossary card */
-.glossary-card {
-    background-color: var(--charcoal-light);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    padding: 1.25rem;
-    margin-bottom: 0.75rem;
-}
-.glossary-card dt {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1rem;
-    color: var(--orange);
-    margin-bottom: 0.25rem;
-}
-.glossary-card dd {
-    font-family: 'Inter', sans-serif;
+.detail-sub {
+    font-family: var(--sans);
+    color: var(--ink-3);
     font-size: 0.8125rem;
-    color: var(--text-secondary);
-    margin-left: 0;
+    letter-spacing: 0.02em;
+}
+.detail-sentence {
+    font-family: var(--sans);
+    font-size: 1rem;
+    color: var(--ink);
+    margin-top: 1.25rem;
     line-height: 1.55;
+    max-width: 44ch;
+}
+.detail-sentence b { font-weight: 700; }
+
+.stat-tile {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--glass-radius-sm);
+    padding: 1.125rem 1.375rem;
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    transition: background-color 200ms ease, border-color 200ms ease;
+}
+.stat-tile:hover { background: var(--surface-hi); border-color: rgba(255,255,255,0.12); }
+.stat-tile-label {
+    font-family: var(--sans);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-3);
+    margin-bottom: 0.625rem;
+}
+.stat-tile-value {
+    font-family: var(--sans);
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+.stat-tile-value.pos { color: var(--delta-warm-2); }
+.stat-tile-value.neg { color: var(--delta-cool-2); }
+.stat-tile-sub {
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    margin-top: 0.5rem;
 }
 
-/* CTA link */
-.cta-link {
+/* ================================================================
+   LEAGUE HERO — percentile ring + distribution strip
+   ================================================================ */
+.league-hero {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1rem;
+    align-items: stretch;
+}
+@media (max-width: 900px) { .league-hero { grid-template-columns: 1fr; } }
+
+.ring-wrap {
+    position: relative;
+    aspect-ratio: 1;
+    max-width: 280px;
+    margin: 0 auto;
+}
+.ring-wrap svg { width: 100%; height: 100%; display: block; }
+.ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    pointer-events: none;
+}
+.ring-value {
+    font-family: var(--sans);
+    font-size: 3.25rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+.ring-value .pct-mark {
+    font-size: 1.125rem;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin-left: 2px;
+}
+.ring-value.pos { color: var(--delta-warm-2); }
+.ring-value.neg { color: var(--delta-cool-2); }
+.ring-caption {
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.5rem;
+    font-weight: 600;
+}
+
+.dist-strip {
+    width: 100%;
+    height: 56px;
+    position: relative;
+}
+.dist-strip svg { width: 100%; height: 100%; display: block; }
+
+/* ================================================================
+   PROVISIONAL TAG
+   ================================================================ */
+.prov {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    color: var(--orange);
-    font-weight: 600;
-    font-size: 0.875rem;
-    text-decoration: none;
-    transition: color 0.15s ease;
+    gap: 0.35rem;
+    background: rgba(232,96,10,0.10);
+    color: var(--accent);
+    border: 1px solid rgba(232,96,10,0.28);
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    font-family: var(--sans);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    vertical-align: middle;
+    line-height: 1.4;
 }
-.cta-link:hover {
-    color: var(--orange-light);
+.prov::before {
+    content: '';
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(232,96,10,0.6);
+}
+.verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--ink-3);
+    font-family: var(--sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
 }
 
-/* Hide default Streamlit footer */
-footer { visibility: hidden; }
-#MainMenu { visibility: hidden; }
+/* ================================================================
+   DIVERGING TEXT UTILITIES (kept for tile accent)
+   ================================================================ */
+.delta-pos-strong  { color: var(--delta-warm-3); }
+.delta-pos         { color: var(--delta-warm-2); }
+.delta-pos-soft    { color: var(--delta-warm-1); }
+.delta-zero        { color: var(--ink-3); }
+.delta-neg-soft    { color: var(--delta-cool-1); }
+.delta-neg         { color: var(--delta-cool-2); }
+.delta-neg-strong  { color: var(--delta-cool-3); }
+
+/* ================================================================
+   EXPANDER — dressed as glass card
+   ================================================================ */
+.streamlit-expanderHeader {
+    font-family: var(--sans) !important;
+    font-size: 0.9375rem !important;
+    font-weight: 600 !important;
+    color: var(--ink) !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 14px !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    transition: background-color 160ms ease, border-color 160ms ease;
+    padding: 1rem 1.5rem !important;
+}
+.streamlit-expanderHeader:hover {
+    background: var(--surface-hi) !important;
+    border-color: rgba(255,255,255,0.16) !important;
+}
+.streamlit-expanderContent {
+    border: 1px solid var(--rule) !important;
+    border-top: none !important;
+    border-radius: 0 0 14px 14px !important;
+    background: var(--surface-2) !important;
+    padding: 0 1.5rem 1.5rem 1.5rem !important;
+}
+div[data-testid="stExpander"] {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* ================================================================
+   METRICS (Streamlit native) — quiet
+   ================================================================ */
+[data-testid="stMetric"] {
+    background: var(--surface) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 12px !important;
+    padding: 1rem 1.25rem !important;
+}
+[data-testid="stMetric"] label {
+    font-family: var(--sans) !important;
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-3) !important;
+}
+[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    font-family: var(--mono) !important;
+    font-size: 1.375rem !important;
+    font-weight: 500 !important;
+    color: var(--ink) !important;
+}
+
+/* ================================================================
+   DIVIDERS / MISC
+   ================================================================ */
+hr { border-color: var(--rule) !important; margin: 2rem 0 !important; }
+a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+a:hover { border-bottom-color: var(--ink); }
 """

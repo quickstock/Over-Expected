@@ -1,5 +1,6 @@
-# Large uncompressed database (compressed .gz is committed instead)
+# Large databases — never committed. Keep the slim gz in version control instead.
 xfta.db
+xfta_full.db
 
 # Python cache
 __pycache__/

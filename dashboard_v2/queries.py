@@ -1,251 +1,235 @@
-"""SQL query functions for the xFTA dashboard v2."""
+"""Real data access for xFTA dashboard v2.
+
+Reads from xfta.db (slim, the gzipped version on Streamlit Cloud).
+All results are st.cache_data-cached at the module level.
+"""
 
 from __future__ import annotations
 
+import os
+import gzip
 import sqlite3
 import pandas as pd
+import streamlit as st
 
 from config import DB_PATH
 
 
-@pd.api.extensions.register_dataframe_accessor("xfta")
-class XFTAAccessor:
-    """Custom pandas accessor for xFTA formatting."""
-
-    def __init__(self, pandas_obj: pd.DataFrame):
-        self._obj = pandas_obj
-
-    def fmt_num(self, col: str, decimals: int = 1) -> pd.Series:
-        return self._obj[col].apply(lambda x: f"{x:,.{decimals}f}" if pd.notna(x) else "—")
-
-    def fmt_pct(self, col: str) -> pd.Series:
-        return self._obj[col].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "—")
-
-
-def get_connection(db_path: str = DB_PATH):
-    return sqlite3.connect(db_path)
-
-
-def get_table_names(conn: sqlite3.Connection) -> list[str]:
-    cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    return [r[0] for r in cur.fetchall()]
-
-
-def get_seasons(conn: sqlite3.Connection) -> list[str]:
-    tables = get_table_names(conn)
-    if "games" in tables:
-        cur = conn.execute("SELECT DISTINCT season FROM games ORDER BY season")
-        return [r[0] for r in cur.fetchall()]
-    return []
-
-
-def get_leaderboard(
-    conn: sqlite3.Connection,
-    season: str | None = None,
-    min_fga: int = 300,
-    position_filter: str = "All",
-) -> pd.DataFrame:
-    tables = get_table_names(conn)
-    if "player_season_xfta" not in tables:
-        return pd.DataFrame()
-
-    query = "SELECT * FROM player_season_xfta WHERE fga >= ?"
-    params: list = [min_fga]
-
-    if season:
-        query += " AND season = ?"
-        params.append(season)
-
-    df = pd.read_sql(query, conn, params=params)
-    if len(df) == 0:
-        return df
-
-    if position_filter != "All":
-        ps = pd.read_sql("SELECT player_id, position FROM player_season", conn)
-        df = df.merge(ps, on="player_id", how="left")
-        if position_filter == "G":
-            df = df[df["position"].str.contains("Guard", na=False)]
-        elif position_filter == "F":
-            df = df[df["position"].str.contains("Forward", na=False)]
-        elif position_filter == "C":
-            df = df[df["position"].str.contains("Center", na=False)]
-        df = df.drop(columns=["position"], errors="ignore")
-
-    return df.sort_values("ftaoe_per_100_fga", ascending=False)
-
-
-def get_player_list(conn: sqlite3.Connection) -> pd.DataFrame:
-    tables = get_table_names(conn)
-    if "player_season" in tables:
-        return pd.read_sql(
-            "SELECT DISTINCT player_id, player_name FROM player_season WHERE player_name IS NOT NULL ORDER BY player_name",
-            conn,
+# ---------------------------------------------------------------------------
+# Connection
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def get_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
+    """Open a connection. Cached as a resource (connection is reusable)."""
+    if not os.path.exists(db_path):
+        gz = db_path + ".gz"
+        if os.path.exists(gz):
+            with gzip.open(gz, "rb") as f_in, open(db_path, "wb") as f_out:
+                f_out.write(f_in.read())
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(
+            f"Database not found at {db_path}. Run build_possession_leaderboard.py."
         )
-    return pd.DataFrame()
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.execute("PRAGMA query_only = ON")
+    return conn
 
 
-def get_player_shots(
-    conn: sqlite3.Connection, player_id: int, season: str | None = None
+def _table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    )
+    return cur.fetchone() is not None
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_table_names(db_path: str) -> list[str]:
+    conn = get_connection(db_path)
+    return [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    ).fetchall()]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_seasons(db_path: str) -> list[str]:
+    conn = get_connection(db_path)
+    if not _table_exists(conn, "games"):
+        return []
+    return [r[0] for r in conn.execute(
+        "SELECT DISTINCT season FROM games ORDER BY season"
+    ).fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# The leaderboard table
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=300, show_spinner=False)
+def get_leaderboard_data(db_path: str) -> pd.DataFrame:
+    """Return all player-seasons from player_season_xfta_poss_lb.
+
+    Columns returned: player_id, player_name, season, position, possessions,
+    actual_fta_from_fouls, xfta_total, ftaoe, ftaoe_per_100, ftaoe_rank.
+
+    The 'position' column is the full label (Guard/Forward/Center/Guard-Forward
+    etc). The 'pos_bucket' derived column maps to G/F/C for filtering.
+    """
+    conn = get_connection(db_path)
+    if not _table_exists(conn, "player_season_xfta_poss_lb"):
+        return pd.DataFrame()
+
+    df = pd.read_sql(
+        """
+        SELECT
+            CAST(player_id AS INTEGER) AS player_id,
+            season,
+            possessions,
+            actual_fta_from_fouls,
+            xfta_total,
+            ftaoe,
+            ftaoe_per_100,
+            ftaoe_rank,
+            player_name,
+            position
+        FROM player_season_xfta_poss_lb
+        WHERE ftaoe_per_100 IS NOT NULL
+        """,
+        conn,
+    )
+    # Coerce types — sqlite stores INTEGER for actual_fta_from_fouls
+    df["actual_fta_from_fouls"] = df["actual_fta_from_fouls"].astype(float)
+    df["xfta_total"] = df["xfta_total"].astype(float)
+    df["ftaoe"] = df["ftaoe"].astype(float)
+    df["ftaoe_per_100"] = df["ftaoe_per_100"].astype(float)
+    df["possessions"] = df["possessions"].astype(int)
+
+    # Position bucket for filtering
+    def _bucket(pos: str) -> str:
+        if not isinstance(pos, str):
+            return "F"
+        p = pos.lower()
+        if "guard" in p:
+            return "G"
+        if "center" in p:
+            return "C"
+        return "F"
+
+    df["pos_bucket"] = df["position"].apply(_bucket)
+    return df.sort_values("ftaoe_per_100", ascending=False).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Filtering + percentiles
+# ---------------------------------------------------------------------------
+def filter_leaderboard(
+    df: pd.DataFrame,
+    season: str | None = None,
+    position_bucket: str | None = None,
+    min_possessions: int = 300,
 ) -> pd.DataFrame:
-    tables = get_table_names(conn)
-    if "training_fga" not in tables:
+    """Apply filters. Returns the filtered frame with a 'percentile' column
+    computed within the filtered cohort (the inline bar)."""
+    out = df.copy()
+    if season and season != "All":
+        out = out[out["season"] == season]
+    if position_bucket and position_bucket != "All":
+        out = out[out["pos_bucket"] == position_bucket]
+    out = out[out["possessions"] >= min_possessions]
+
+    if len(out) == 0:
+        return out.assign(percentile=pd.Series(dtype=float))
+
+    # Percentile within the cohort — rank on ftaoe_per_100, pct = (rank-1)/(n-1)
+    out = out.sort_values("ftaoe_per_100", ascending=False).reset_index(drop=True)
+    n = len(out)
+    out["percentile"] = (1 - out.index / max(1, n - 1)) * 100
+    return out
+
+
+def season_percentile(df: pd.DataFrame, player_id: int, season: str) -> float | None:
+    """Percentile of a player within their own season's qualified cohort."""
+    cohort = df[(df["season"] == season)].copy()
+    if len(cohort) == 0:
+        return None
+    cohort = cohort.sort_values("ftaoe_per_100", ascending=False).reset_index(drop=True)
+    n = len(cohort)
+    if n == 1:
+        return 100.0
+    pos = cohort.index[cohort["player_id"] == player_id]
+    if len(pos) == 0:
+        return None
+    rank = pos[0]
+    return round((1 - rank / (n - 1)) * 100, 1)
+
+
+def robust_domain(values: pd.Series, lo: float = 0.05, hi: float = 0.95) -> tuple[float, float]:
+    """Return robust (vmin, vmax) from a series using percentile clipping.
+
+    Outliers beyond p5/p95 are clamped — so one 100%-capture player can't
+    flatten the rest of the leaderboard into neutral.
+    """
+    clean = values.dropna()
+    if len(clean) == 0:
+        return (-5.0, 10.0)
+    vmin = float(clean.quantile(lo))
+    vmax = float(clean.quantile(hi))
+    # Symmetric around zero if both are far from it; otherwise raw
+    if vmin < 0 < vmax:
+        # make it visually balanced: use the larger of |vmin|, |vmax|
+        m = max(abs(vmin), abs(vmax))
+        return (-m, m)
+    if vmin >= 0:
+        return (0.0, vmax)
+    return (vmin, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Player hero
+# ---------------------------------------------------------------------------
+def get_player_seasons(db_path: str, player_id: int) -> pd.DataFrame:
+    """All seasons for a single player (used by the across-seasons table)."""
+    conn = get_connection(db_path)
+    if not _table_exists(conn, "player_season_xfta_poss_lb"):
         return pd.DataFrame()
-
-    query = """
-    SELECT
-        tf.game_id, tf.event_id, tf.player_id, tf.season,
-        tf.shot_distance, tf.action_type, tf.shot_type, tf.period,
-        tf.seconds_remaining_in_period, tf.score_margin, tf.in_bonus,
-        tf.home_or_away, tf.shooter_height, tf.shooter_position,
-        tf.prior_season_ftr, tf.prior_season_drive_rate,
-        tf.fta_from_shot, tf.xfta,
-        s.shot_x, s.shot_y, s.shot_made, s.shot_zone_basic, s.shot_zone_area
-    FROM training_fga tf
-    JOIN shots s ON tf.game_id = s.game_id AND tf.event_id = s.event_id
-    WHERE tf.player_id = ?
-    """
-    params = [player_id]
-    if season:
-        query += " AND tf.season = ?"
-        params.append(season)
-
-    return pd.read_sql(query, conn, params=params)
-
-
-def get_xfta_heatmap_bins(conn: sqlite3.Connection, bins: int = 30) -> pd.DataFrame:
-    """Precompute binned xFTA averages for the hero heatmap."""
-    if "training_fga" not in get_table_names(conn):
-        return pd.DataFrame()
-
-    query = f"""
-    SELECT
-        CAST(ROUND((s.shot_x + 25) / 50.0 * {bins}) AS INTEGER) AS x_bin,
-        CAST(ROUND(s.shot_y / 47.0 * {bins}) AS INTEGER) AS y_bin,
-        AVG(tf.xfta) AS avg_xfta,
-        COUNT(*) AS n
-    FROM training_fga tf
-    JOIN shots s ON tf.game_id = s.game_id AND tf.event_id = s.event_id
-    WHERE s.shot_x IS NOT NULL AND s.shot_y IS NOT NULL
-      AND s.shot_x BETWEEN -25 AND 25
-      AND s.shot_y BETWEEN 0 AND 47
-    GROUP BY x_bin, y_bin
-    HAVING n >= 20
-    """
-    df = pd.read_sql(query, conn)
-    # Clip to valid bin range
-    df = df[(df["x_bin"] >= 0) & (df["x_bin"] <= bins) & (df["y_bin"] >= 0) & (df["y_bin"] <= bins)]
-    return df
-
-
-def get_player_season_summary(conn: sqlite3.Connection, player_id: int, season: str) -> dict:
-    """Plain-language summary stats for a player season."""
-    query = """
-    SELECT
-        fga,
-        actual_fta_from_fouls,
-        xfta_total,
-        ftaoe,
-        ftaoe_per_100_fga,
-        ftaoe_rank
-    FROM player_season_xfta
-    WHERE player_id = ? AND season = ?
-    """
-    row = pd.read_sql(query, conn, params=[player_id, season])
-    if len(row) == 0:
-        return {}
-    return row.iloc[0].to_dict()
-
-
-def get_calibration_data(conn: sqlite3.Connection) -> pd.DataFrame:
-    """Global calibration: predicted xFTA deciles vs actual FTA (player-season level).
-
-    Validates the model at the player-season grain using corrected actual FTA
-    from basketball-reference, which fixes the undercount in play-by-play
-    shooting-foul linkage.
-    """
-    if "training_fga" not in get_table_names(conn):
-        return pd.DataFrame()
-
-    query = """
-    WITH pred AS (
-        SELECT tf.player_id, tf.season, p.xfta
-        FROM training_fga tf
-        JOIN predictions p ON tf.game_id = p.game_id AND tf.event_id = p.event_id
-    ),
-    ps AS (
-        SELECT player_id, season,
-               AVG(xfta) AS predicted_rate,
-               SUM(xfta) AS predicted_total,
-               COUNT(*) AS fga
-        FROM pred
-        GROUP BY player_id, season
-    ),
-    ranked AS (
-        SELECT ps.predicted_rate,
-               (psx.actual_fta_from_fouls * 1.0 / ps.fga) AS actual_rate,
-               ps.fga,
-               NTILE(10) OVER (ORDER BY ps.predicted_rate) AS decile
-        FROM ps
-        JOIN player_season_xfta psx
-          ON ps.player_id = psx.player_id AND ps.season = psx.season
-        WHERE ps.fga > 0 AND psx.actual_fta_from_fouls IS NOT NULL
+    df = pd.read_sql(
+        """
+        SELECT
+            CAST(player_id AS INTEGER) AS player_id,
+            season,
+            possessions,
+            actual_fta_from_fouls,
+            xfta_total,
+            ftaoe,
+            ftaoe_per_100,
+            ftaoe_rank,
+            player_name,
+            position
+        FROM player_season_xfta_poss_lb
+        WHERE CAST(player_id AS INTEGER) = ?
+        ORDER BY season
+        """,
+        conn,
+        params=(player_id,),
     )
-    SELECT
-        decile,
-        AVG(predicted_rate) AS predicted,
-        AVG(actual_rate) AS actual,
-        SUM(fga) AS n
-    FROM ranked
-    GROUP BY decile
-    ORDER BY decile
-    """
-    return pd.read_sql(query, conn)
+    df["actual_fta_from_fouls"] = df["actual_fta_from_fouls"].astype(float)
+    df["xfta_total"] = df["xfta_total"].astype(float)
+    df["ftaoe"] = df["ftaoe"].astype(float)
+    df["ftaoe_per_100"] = df["ftaoe_per_100"].astype(float)
+    df["possessions"] = df["possessions"].astype(int)
+    return df.reset_index(drop=True)
 
 
-def get_zone_calibration(conn: sqlite3.Connection) -> pd.DataFrame:
-    """Per-zone calibration using corrected player-season actuals.
+def get_player_options(db_path: str) -> list[str]:
+    """Sorted list of unique player names for the hero selector."""
+    df = get_leaderboard_data(db_path)
+    if len(df) == 0:
+        return []
+    return sorted(df["player_name"].dropna().unique().tolist())
 
-    For each zone, compares the model's average predicted xFTA against the
-    player's true season FTA rate (from basketball-reference). This is a
-    coarser check than shot-level calibration but avoids the PBP undercount.
-    """
-    if "training_fga" not in get_table_names(conn):
-        return pd.DataFrame()
 
-    query = """
-    WITH pred AS (
-        SELECT tf.player_id, tf.season, p.xfta, s.shot_zone_basic
-        FROM training_fga tf
-        JOIN predictions p ON tf.game_id = p.game_id AND tf.event_id = p.event_id
-        JOIN shots s ON tf.game_id = s.game_id AND tf.event_id = s.event_id
-        WHERE p.xfta IS NOT NULL AND s.shot_zone_basic IS NOT NULL
-    ),
-    ps_zone AS (
-        SELECT player_id, season, shot_zone_basic,
-               AVG(xfta) AS predicted_rate,
-               COUNT(*) AS fga
-        FROM pred
-        GROUP BY player_id, season, shot_zone_basic
-    ),
-    ranked AS (
-        SELECT pz.predicted_rate, pz.shot_zone_basic AS zone,
-               (psx.actual_fta_from_fouls * 1.0 / psx.fga) AS actual_rate,
-               pz.fga,
-               NTILE(10) OVER (PARTITION BY pz.shot_zone_basic
-                                ORDER BY pz.predicted_rate) AS decile
-        FROM ps_zone pz
-        JOIN player_season_xfta psx
-          ON pz.player_id = psx.player_id AND pz.season = psx.season
-        WHERE pz.fga > 0 AND psx.actual_fta_from_fouls IS NOT NULL
-          AND psx.fga > 0
-    )
-    SELECT
-        zone, decile,
-        AVG(predicted_rate) AS predicted,
-        AVG(actual_rate) AS actual,
-        SUM(fga) AS n
-    FROM ranked
-    GROUP BY zone, decile
-    ORDER BY zone, decile
-    """
-    return pd.read_sql(query, conn)
+def get_marquee_season(db_path: str, player_name: str) -> dict | None:
+    """Return the player's highest-possessions season (the default hero)."""
+    df = get_leaderboard_data(db_path)
+    rows = df[df["player_name"] == player_name]
+    if len(rows) == 0:
+        return None
+    return rows.sort_values("possessions", ascending=False).iloc[0].to_dict()
