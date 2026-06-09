@@ -71,8 +71,12 @@ NBA_API_TIMEOUT = 60          # request timeout seconds
 # Caching
 CACHE_DIR = "cache"
 
-# Database
-DB_PATH = "xfta.db"
+import os
+# Database — relative to the xFTA project root (the directory this file
+# lives in), so it works no matter which directory the process is
+# launched from.
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_REPO_ROOT, "xfta.db")
 
 # Gate A test game
 GATE_A_GAME_ID = "0022300001"

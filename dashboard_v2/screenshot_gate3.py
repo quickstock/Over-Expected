@@ -1,11 +1,15 @@
-"""Gate 1 reskin screenshots — desktop + mobile, leaderboard + player + empty.
+"""Gate 3 screenshots — desktop + mobile, leaderboard + player + methodology.
+
+Each capture uses a FRESH browser context so Streamlit's session state
+isn't sticky across captures (the WebSocket persists across page.goto
+within the same context, which makes the URL pre-select for hero_player
+silently ignored on subsequent visits).
 
 Element-level screenshots via .block-container (full-page returns blank
 in this env). Tab clicks go through JS to bypass the sidebar hit-test
 that intercepts the second tab.
 """
 import os
-import sys
 import time
 import urllib.request
 
@@ -27,14 +31,80 @@ def wait_for_server(url, timeout=30):
 
 
 def click_tab(page, name: str) -> None:
-    page.evaluate(
+    # Use Playwright's role-based click — fires the actual onClick that
+    # Streamlit wires to tab[role=tab]. A bare .click() on the element
+    # in JS doesn't reach Streamlit's React handler.
+    page.get_by_role("tab", name=name).click()
+
+
+def wait_tab_active(page, name: str, timeout_ms: int = 10000) -> None:
+    """Wait until the named tab is the active one (aria-selected=true)."""
+    page.wait_for_function(
         """(name) => {
             const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
             const t = tabs.find(b => b.textContent.trim() === name);
-            if (t) t.click();
+            return t && t.getAttribute('aria-selected') === 'true';
         }""",
-        name,
+        arg=name,
+        timeout=timeout_ms,
     )
+    # Then wait for the matching tabpanel to actually be visible
+    page.wait_for_function(
+        """(name) => {
+            const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
+            const idx = tabs.findIndex(b => b.textContent.trim() === name);
+            if (idx < 0) return false;
+            const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+            const p = panels[idx];
+            return p && getComputedStyle(p).display !== 'none' && p.getBoundingClientRect().width > 0;
+        }""",
+        arg=name,
+        timeout=timeout_ms,
+    )
+
+
+def shot(page, name: str, outdir: str) -> None:
+    """Screenshot the first .block-container."""
+    page.locator(".block-container").first.screenshot(path=f"{outdir}/{name}.png")
+    print(f"  {name}.png")
+
+
+def fresh_desktop_capture(p, out: str, *, label: str, url: str = URL,
+                          tab: str = "Leaderboard", settle: float = 2.0,
+                          pre_action=None) -> None:
+    browser = p.chromium.launch(headless=True)
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+    page = ctx.new_page()
+    page.goto(url, wait_until="domcontentloaded")
+    page.wait_for_selector('button[role="tab"]', timeout=15000)
+    if pre_action is not None:
+        pre_action(page)
+    click_tab(page, tab)
+    wait_tab_active(page, tab)
+    time.sleep(settle)
+    shot(page, label, out)
+    ctx.close()
+    browser.close()
+
+
+def fresh_mobile_capture(p, out: str, *, label: str, url: str = URL,
+                         tab: str = "Leaderboard", settle: float = 2.0) -> None:
+    browser = p.chromium.launch(headless=True)
+    ctx = browser.new_context(
+        viewport={"width": 390, "height": 844},
+        device_scale_factor=2,
+        is_mobile=True,
+        has_touch=True,
+    )
+    page = ctx.new_page()
+    page.goto(url, wait_until="domcontentloaded")
+    page.wait_for_selector('button[role="tab"]', timeout=15000)
+    click_tab(page, tab)
+    wait_tab_active(page, tab)
+    time.sleep(settle)
+    shot(page, label, out)
+    ctx.close()
+    browser.close()
 
 
 def main():
@@ -42,106 +112,41 @@ def main():
     os.makedirs(out, exist_ok=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-
-        # ---- DESKTOP ----------------------------------------------------
-        ctx = browser.new_context(viewport={"width": 1440, "height": 900})
-        page = ctx.new_page()
-
+        # ---- DESKTOP — fresh context per capture -----------------------
         # 1) Leaderboard default
-        page.goto(URL, wait_until="domcontentloaded")
-        page.wait_for_selector('button[role="tab"]', timeout=15000)
-        page.wait_for_selector('.gap-table', timeout=15000)
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/leaderboard_desktop.png"
-        )
-        print("  leaderboard_desktop.png")
+        fresh_desktop_capture(p, out, label="leaderboard_desktop",
+                              tab="Leaderboard")
 
-        # 2) Player tab — default (Embiid)
-        click_tab(page, "Player")
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/player_embiid_desktop.png"
-        )
-        print("  player_embiid_desktop.png")
+        # 2) Player tab — default Embiid (no URL pre-select, default branch
+        #    in app.py picks Embiid)
+        fresh_desktop_capture(p, out, label="player_embiid_desktop",
+                              tab="Player")
 
         # 3) Player tab — Klay (cool/negative)
-        page.goto(f"{URL}/?hero_player=Klay+Thompson", wait_until="domcontentloaded")
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/player_klay_desktop.png"
-        )
-        print("  player_klay_desktop.png")
+        fresh_desktop_capture(p, out, label="player_klay_desktop",
+                              url=f"{URL}/?hero_player=Klay+Thompson",
+                              tab="Player")
 
         # 4) Player tab — Doncic (mid-pack)
-        page.goto(f"{URL}/?hero_player=Luka+Doncic", wait_until="domcontentloaded")
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/player_luka_desktop.png"
-        )
-        print("  player_luka_desktop.png")
+        fresh_desktop_capture(p, out, label="player_luka_desktop",
+                              url=f"{URL}/?hero_player=Luka+Don%C4%8Di%C4%87",
+                              tab="Player")
 
-        # 5) Methodology stub
-        click_tab(page, "Methodology")
-        time.sleep(2.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/methodology_desktop.png"
-        )
-        print("  methodology_desktop.png")
+        # 5) Methodology — heavy SQL (calibration bins 725k rows), needs longer settle
+        fresh_desktop_capture(p, out, label="methodology_desktop",
+                              tab="Methodology", settle=8.0)
 
-        # 6) Empty state — over-filter (set min FGA to max via slider)
-        click_tab(page, "Leaderboard")
-        page.wait_for_selector('.gap-table', timeout=10000)
-        time.sleep(1.0)
-        # Push the min FGA slider all the way right
-        page.evaluate("""
-            () => {
-                const sliders = document.querySelectorAll('div[data-testid="stSlider"] input[type="range"]');
-                if (sliders.length) {
-                    const s = sliders[0];
-                    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    setter.call(s, '1500');
-                    s.dispatchEvent(new Event('input', { bubbles: true }));
-                    s.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            }
-        """)
-        time.sleep(2.5)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/leaderboard_empty_desktop.png"
-        )
-        print("  leaderboard_empty_desktop.png")
+        # 6) Empty leaderboard — push min-possessions slider beyond any
+        #    player's season total so we get a clean "No matches" state.
+        fresh_desktop_capture(p, out, label="leaderboard_empty_desktop",
+                              url=f"{URL}/?min_poss=2000",
+                              tab="Leaderboard", settle=2.0)
 
-        ctx.close()
-
-        # ---- MOBILE -----------------------------------------------------
-        ctx = browser.new_context(
-            viewport={"width": 390, "height": 844},
-            device_scale_factor=2,
-            is_mobile=True,
-            has_touch=True,
-        )
-        page = ctx.new_page()
-
-        page.goto(URL, wait_until="domcontentloaded")
-        page.wait_for_selector('button[role="tab"]', timeout=15000)
-        page.wait_for_selector('.gap-table', timeout=15000)
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/leaderboard_mobile.png"
-        )
-        print("  leaderboard_mobile.png")
-
-        click_tab(page, "Player")
-        time.sleep(3.0)
-        page.locator('.block-container').first.screenshot(
-            path=f"{out}/player_mobile.png"
-        )
-        print("  player_mobile.png")
-
-        ctx.close()
-        browser.close()
+        # ---- MOBILE — fresh contexts ----------------------------------
+        fresh_mobile_capture(p, out, label="leaderboard_mobile",
+                             tab="Leaderboard")
+        fresh_mobile_capture(p, out, label="player_mobile",
+                             tab="Player")
 
 
 if __name__ == "__main__":
