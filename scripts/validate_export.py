@@ -193,6 +193,29 @@ report(
     + (f"; first failure: {worst_key}" if worst_key else "; all exact"),
 )
 
+# ---------------------------------------------------------------- check 5c
+# Season anchoring: possession-weighted mean FTAOE ~ 0 per season, for both
+# the headline and the style-adjusted metric (covered rows only).
+ok5c = True
+lines = []
+for season in data["meta"]["seasons"]:
+    rows_s = [r for r in data["leaderboard"] if r["season"] == season]
+    poss = sum(r["poss"] for r in rows_s)
+    mean_head = sum(r["ftaoe"] for r in rows_s) / poss * 100
+    cov = [r for r in rows_s if r.get("sper100") is not None]
+    mean_style = (
+        sum(r["sper100"] * r["poss"] for r in cov) / sum(r["poss"] for r in cov)
+        if cov else 0.0
+    )
+    if abs(mean_head) > 0.2 or abs(mean_style) > 0.2:
+        ok5c = False
+    lines.append(f"{season}: head {mean_head:+.3f}, style {mean_style:+.3f}")
+report(
+    "5c. Anchoring: poss-weighted mean FTAOE per 100 ~ 0 per season (|x|<=0.2)",
+    ok5c,
+    " | ".join(lines),
+)
+
 # ---------------------------------------------------------------- check 6
 size_mb = JSON_PATH.stat().st_size / 1e6
 report(

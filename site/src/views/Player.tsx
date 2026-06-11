@@ -5,6 +5,7 @@ import { useTitle } from "../lib/useTitle";
 import { divergingText } from "../lib/color";
 import { int, ordinal, signed } from "../lib/format";
 import { useCountUp } from "../lib/useCountUp";
+import { Delta } from "../components/Delta";
 import SegmentedControl from "../components/SegmentedControl";
 import GapArc from "../components/charts/GapArc";
 import FormStrip from "../components/charts/FormStrip";
@@ -178,6 +179,7 @@ export default function Player() {
             </>
           }
           label="Actual / expected FTA"
+          sub={`league rate: ${data.meta.leagueRateBySeason[season].toFixed(1)} per 100`}
         />
         <Stat
           delay={180}
@@ -189,6 +191,31 @@ export default function Player() {
           label="Extra FTA vs league"
         />
       </section>
+
+      {/* style-adjusted second lens */}
+      {row.sper100 !== null && (
+        <section className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line-soft pb-6">
+          <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
+            Style-adjusted
+          </span>
+          <Delta per100={row.sper100} className="text-2xl" />
+          <span className="font-mono tnum text-sm text-ink-soft">
+            per 100{row.spct !== null ? ` · ${ordinal(Math.floor(row.spct))} %ile` : ""}
+          </span>
+          <span className="basis-full text-sm leading-relaxed text-ink-soft">
+            Above what his attack profile (drives, paint and post touches)
+            predicts: a different question than the headline number, which
+            compares to a league-average player.{" "}
+            <Link
+              to="/methodology"
+              className="underline underline-offset-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              How it differs
+            </Link>
+            .
+          </span>
+        </section>
+      )}
 
       {/* the gap */}
       <section className="mt-14">

@@ -61,6 +61,19 @@ def add_percentile(df: pd.DataFrame) -> pd.DataFrame:
 
 lb = add_percentile(lb)
 
+# Style-adjusted FTAOE (second baseline: exposure-only attack profile).
+style = pd.read_sql("SELECT player_id, season, style_xfta FROM style_expected", conn)
+style["player_id"] = style["player_id"].astype(int)
+lb = lb.merge(style, on=["player_id", "season"], how="left")
+lb["sadj_per100"] = (
+    (lb["actual_fta_from_fouls"] - lb["style_xfta"]) / lb["possessions"] * 100
+)
+lb["spct"] = np.nan
+mask = lb["style_xfta"].notna() & (lb["possessions"] >= QUALIFY_POSS)
+for season, grp in lb[mask].groupby("season"):
+    ranks = grp["sadj_per100"].rank(pct=True) * 100
+    lb.loc[ranks.index, "spct"] = ranks
+
 # Teams a player finished possessions for, in first-appearance order.
 # Derived from possessions.offense_team_id; id 0 is a parsing artifact, skipped.
 team_rows = pd.read_sql(
@@ -98,6 +111,8 @@ leaderboard = [
         "ftaoe": round(r.actual_fta_from_fouls - round(r.xfta_total, 2), 2),
         "per100": round(r.ftaoe_per_100, 2),
         "pct": round(r.pct, 1) if pd.notna(r.pct) else None,
+        "sper100": round(r.sadj_per100, 2) if pd.notna(r.sadj_per100) else None,
+        "spct": round(r.spct, 1) if pd.notna(r.spct) else None,
     }
     for r in lb.itertuples()
 ]
@@ -251,7 +266,13 @@ for (pid, season) in qual_keys:
 
 # ------------------------------------------------------------- calibration
 pred = pd.read_sql(
-    "SELECT sfta, xfta, season FROM predictions_poss_clean", conn
+    """SELECT pr.sfta, pr.xfta, pr.season
+       FROM predictions_poss_clean pr
+       JOIN possessions p
+         ON p.game_id = pr.game_id
+        AND p.possession_number = pr.possession_number
+       WHERE p.finisher_player_id IS NOT NULL""",
+    conn,
 )
 pred["bin"] = pd.qcut(pred["xfta"], 10, duplicates="drop")
 cal = (
@@ -271,7 +292,7 @@ calibration = [
 
 # ------------------------------------------------------------------- meta
 metrics = json.loads(
-    (Path(__file__).parent / "model_artifacts" / "headline_v3_clean_metrics.json")
+    (Path(__file__).parent / "model_artifacts" / "headline_v4_context_metrics.json")
     .read_text()
 )
 n_poss = pred.shape[0]

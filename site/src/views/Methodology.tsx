@@ -207,23 +207,39 @@ export default function Methodology() {
           ))}
         </p>
         <p>
-          We also fit a context model to test whether game state explains who
-          gets fouled: a Poisson GLM (log link, no interactions) on four
-          pre-foul features: period, seconds remaining in the period, score
-          margin, and a late-game bonus proxy. It is validated by season
-          cross-fitting: train on two seasons, predict the held-out third, so
-          every prediction is out-of-fold. Earlier versions of this model
-          included shot location and play-resolution features and looked far
-          stronger; that strength was leakage (the features encoded how the
-          possession ended), and they were removed.
+          On top of that rate we fit a context model: a Poisson GLM (log
+          link, no interactions) on seven features that are all external to
+          the player. Four describe game state (period, seconds remaining in
+          the period, score margin, a late-game bonus proxy) and three
+          describe the situation: whether the offense is at home, the
+          opponent's shooting-foul rate, and the assigned officiating crew's
+          foul rate. The opponent and crew rates are season-specific and
+          leave-one-game-out, so a game's own outcomes never enter its own
+          features. Validation is season cross-fitting (train on five
+          seasons, predict the held-out sixth), so every prediction is
+          out-of-fold. Earlier versions included shot location and
+          play-resolution features and looked far stronger; that strength was
+          leakage (the features encoded how the possession ended), and they
+          were removed.
+        </p>
+        <p>
+          Expected is then anchored to each season's own league rate: the
+          held-out season's predictions are scaled so their mean equals that
+          season's actual rate. Without this, rule changes move everyone's
+          number: when the 2021-22 enforcement change on non-basketball moves
+          cut league foul rates, a model trained on other seasons would
+          over-expect free throws for every 2021-22 player. Anchoring keeps
+          FTAOE a within-season comparison, which is what it claims to be.
         </p>
         <p className="border-l-2 border-line pl-4 text-ink">
-          The honest punchline: out-of-fold, the context model reduces
-          Poisson deviance by just{" "}
+          The honest punchline: out-of-fold, the full context model (game
+          state, home court, opponent, officiating crew) reduces Poisson
+          deviance by just{" "}
           <span className="font-mono tnum">{meta.modelLiftPct.toFixed(2)}%</span>{" "}
-          over the flat league-average baseline. Game context adds essentially
-          nothing. FTAOE is, in practice, "versus league average", and the
-          site presents it that way.
+          against each season's own league-average rate. We adjusted for who
+          you played, where, and who officiated, and it still barely moves.
+          FTAOE is, in practice, "versus league average", and the site
+          presents it that way.
         </p>
         <table className="mt-2 w-full max-w-sm border-collapse text-sm">
           <thead>
@@ -268,6 +284,31 @@ export default function Methodology() {
         </p>
       </div>
 
+      <H2>Style-adjusted FTAOE</H2>
+      <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
+        <p>
+          Player pages also show a second, labeled number that answers a
+          different question: how many shooting-foul free throws does a
+          player draw above what his attack profile predicts? The baseline
+          is a player-season Poisson model whose only inputs are exposure
+          counts from NBA tracking data: drives, paint touches, and post
+          touches per 100 possessions. It is fit the same leak-free way
+          (train on five seasons, predict the sixth, anchor to the season),
+          and the player's own free-throw outcomes on those plays are never
+          features.
+        </p>
+        <p>
+          Attack profile alone explains most foul-drawing volume (predicted
+          and actual FTA correlate around 0.85 season over season). The
+          residual separates two archetypes the headline number mixes: the
+          high-volume interior player whose big FTAOE comes with enormous
+          paint volume, and the per-exposure specialist who converts each
+          drive or touch into free throws at an unusual rate. Neither
+          reading is more correct; they answer different questions, which is
+          why both numbers are shown and labeled.
+        </p>
+      </div>
+
       <H2>What this number is not</H2>
       <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
         <p>
@@ -276,6 +317,22 @@ export default function Methodology() {
           officiating, and this method cannot separate those three. In
           particular, it does not isolate and does not prove referee bias, in
           either direction, for any player. That question stays open.
+        </p>
+        <p>
+          The model cannot see who was defending. Per-possession defender
+          identity and position exist only in the league's internal tracking
+          stack; public matchup data is aggregated and cannot be joined to
+          possessions, and a fouled miss has no shot event to attach a
+          defender to. That is a real ceiling on how sophisticated a public,
+          leak-free baseline can get.
+        </p>
+        <p>
+          On referees: the officiating crew's overall foul tendency is
+          adjusted for as context above. We deliberately do not publish
+          player-by-referee splits. With three officials per game and a few
+          dozen shared games per player-referee pair, those tables are noise
+          machines that read as accusations; nothing here supports a claim
+          about any referee and any player.
         </p>
         <p>
           Because attempts are attributed to the possession finisher, players
@@ -296,7 +353,10 @@ export default function Methodology() {
           where fouls happen. Team labels are derived from the possession
           data itself (the teams a player finished possessions for, in order
           of first appearance), which is also how midseason trades show up.
-          Percentiles are computed within each season's qualified pool.
+          Home/away and officiating crews come from the NBA's public game
+          feeds; drives and touch counts come from the NBA's public tracking
+          aggregates. Percentiles are computed within each season's
+          qualified pool.
         </p>
       </div>
     </article>

@@ -11,6 +11,10 @@ export interface LeaderboardRow {
   ftaoe: number;
   per100: number;
   pct: number | null;
+  /** Style-adjusted FTAOE per 100 (vs attack-profile baseline); null when
+      tracking exposures are unavailable or below the qualify threshold. */
+  sper100: number | null;
+  spct: number | null;
 }
 
 export interface ZoneAgg {

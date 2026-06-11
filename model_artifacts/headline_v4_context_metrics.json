@@ -1,0 +1,129 @@
+{
+  "folds": [
+    {
+      "season": "2020-21",
+      "lift_pct": 0.19262358899179338,
+      "lift_raw_pct": 0.18738111319600628,
+      "anchor": 1.025993157220243,
+      "baseline": 0.17762709913780703,
+      "pred_mean": 0.17786905465946687,
+      "actual_mean": 0.17762709913780703,
+      "params": {
+        "const": -2.9221780081565525,
+        "period": 0.08731992380239742,
+        "seconds_remaining_in_period": -0.00013554014194722358,
+        "score_margin": 0.0029611743449010374,
+        "in_bonus": -0.09630572499492182,
+        "offense_is_home": 0.009933697654831312,
+        "opp_rate_logo": 3.832152566443178,
+        "crew_rate_logo": 1.9927906831632844
+      }
+    },
+    {
+      "season": "2021-22",
+      "lift_pct": 0.17245519325313682,
+      "lift_raw_pct": 0.18666787561648185,
+      "anchor": 1.025379050757908,
+      "baseline": 0.17512389433370013,
+      "pred_mean": 0.17537913015781006,
+      "actual_mean": 0.17512389433370013,
+      "params": {
+        "const": -2.8828235910150255,
+        "period": 0.08556633965351593,
+        "seconds_remaining_in_period": -0.0001528513647898973,
+        "score_margin": 0.0030471495265800884,
+        "in_bonus": -0.08743787709675702,
+        "offense_is_home": 0.011388342149173364,
+        "opp_rate_logo": 3.901640996296493,
+        "crew_rate_logo": 1.747116962089867
+      }
+    },
+    {
+      "season": "2022-23",
+      "lift_pct": 0.18971500210060402,
+      "lift_raw_pct": 0.30050945570244986,
+      "anchor": 1.0151518034647287,
+      "baseline": 0.19282603664822334,
+      "pred_mean": 0.1930870521338061,
+      "actual_mean": 0.19282603664822334,
+      "params": {
+        "const": -2.968033117281703,
+        "period": 0.08534650653551312,
+        "seconds_remaining_in_period": -0.0001454614819430597,
+        "score_margin": 0.0025611745391728056,
+        "in_bonus": -0.08957485004534345,
+        "offense_is_home": 0.012425284473821657,
+        "opp_rate_logo": 3.8725545888712896,
+        "crew_rate_logo": 2.247644988607286
+      }
+    },
+    {
+      "season": "2023-24",
+      "lift_pct": 0.2719080407636073,
+      "lift_raw_pct": 0.26348666247891345,
+      "anchor": 1.0216792881700119,
+      "baseline": 0.18055338042893967,
+      "pred_mean": 0.1807810247977034,
+      "actual_mean": 0.18055338042893967,
+      "params": {
+        "const": -2.932309174045012,
+        "period": 0.08038304838238916,
+        "seconds_remaining_in_period": -0.00014303160076348736,
+        "score_margin": 0.0027081828697722325,
+        "in_bonus": -0.0874571025449461,
+        "offense_is_home": 0.01256202971593328,
+        "opp_rate_logo": 3.584744959041859,
+        "crew_rate_logo": 2.3918827583174465
+      }
+    },
+    {
+      "season": "2024-25",
+      "lift_pct": 0.24326382512545228,
+      "lift_raw_pct": 0.23671921316964248,
+      "anchor": 1.0206867216213593,
+      "baseline": 0.18172511417064088,
+      "pred_mean": 0.18193507964921335,
+      "actual_mean": 0.18172511417064088,
+      "params": {
+        "const": -2.8660733615827336,
+        "period": 0.07898765917089041,
+        "seconds_remaining_in_period": -0.00013964338106736582,
+        "score_margin": 0.003201852719024817,
+        "in_bonus": -0.08149045937520936,
+        "offense_is_home": 0.012483942208433242,
+        "opp_rate_logo": 3.9156496223017165,
+        "crew_rate_logo": 1.6961496145468107
+      }
+    },
+    {
+      "season": "2025-26",
+      "lift_pct": 0.1637384206459461,
+      "lift_raw_pct": 0.284522037278729,
+      "anchor": 1.013350427461056,
+      "baseline": 0.19329390217263456,
+      "pred_mean": 0.19354511035784627,
+      "actual_mean": 0.19329390217263456,
+      "params": {
+        "const": -2.9970190392459726,
+        "period": 0.08555778015137436,
+        "seconds_remaining_in_period": -0.0001526768487545712,
+        "score_margin": 0.00292957496239745,
+        "in_bonus": -0.08758148863142956,
+        "offense_is_home": 0.01171962595551251,
+        "opp_rate_logo": 3.7753621371344432,
+        "crew_rate_logo": 2.5154204979123422
+      }
+    }
+  ],
+  "oof_lift_pct": 0.20560497019127114,
+  "features": [
+    "period",
+    "seconds_remaining_in_period",
+    "score_margin",
+    "in_bonus",
+    "offense_is_home",
+    "opp_rate_logo",
+    "crew_rate_logo"
+  ],
+  "anchoring": "per-season mean scaling to the season's own league rate"
+}

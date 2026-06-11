@@ -219,8 +219,12 @@ export default function Leaderboard() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Free throw attempts over expected per 100 possessions, {season}.
-          Expected = the league-average shooting-foul rate over the same
-          number of possessions.
+          Expected = this season's league-average rate,{" "}
+          <span className="font-mono tnum">
+            {data.meta.leagueRateBySeason[season].toFixed(1)}
+          </span>{" "}
+          FTA per 100, over the same possessions; the league as a whole sits
+          at <span className="font-mono tnum">0.0</span> by construction.
         </p>
 
         {/* desktop header row */}
