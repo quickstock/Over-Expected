@@ -171,9 +171,10 @@ export default function Methodology() {
         <p>
           The data is possession-level play-by-play:{" "}
           <span className="font-mono tnum">{int(meta.nPossessions)}</span>{" "}
-          possessions across {seasons[0]}, {seasons[1]}, and {seasons[2]}.
-          Each possession's target is the number of shooting-foul free throws
-          it produced (almost always 0, occasionally 2 or 3).
+          possessions across {int(seasons.length)} seasons, {seasons[0]} to{" "}
+          {seasons[seasons.length - 1]}. Each possession's target is the
+          number of shooting-foul free throws it produced (almost always 0,
+          occasionally 2 or 3).
         </p>
       </div>
 
@@ -194,19 +195,16 @@ export default function Methodology() {
       <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
         <p>
           Expected FTA is the league-average shooting-foul rate times the
-          possessions a player finished. That rate was{" "}
-          <span className="font-mono tnum">
-            {meta.leagueRateBySeason[seasons[0]].toFixed(1)}
-          </span>{" "}
-          per 100 in {seasons[0]},{" "}
-          <span className="font-mono tnum">
-            {meta.leagueRateBySeason[seasons[1]].toFixed(1)}
-          </span>{" "}
-          in {seasons[1]}, and{" "}
-          <span className="font-mono tnum">
-            {meta.leagueRateBySeason[seasons[2]].toFixed(1)}
-          </span>{" "}
-          in {seasons[2]}.
+          possessions a player finished, season by season:{" "}
+          {seasons.map((sn, i) => (
+            <span key={sn}>
+              <span className="font-mono tnum">
+                {meta.leagueRateBySeason[sn].toFixed(1)}
+              </span>{" "}
+              in {sn}
+              {i < seasons.length - 1 ? ", " : "."}
+            </span>
+          ))}
         </p>
         <p>
           We also fit a context model to test whether game state explains who
@@ -285,8 +283,8 @@ export default function Methodology() {
           <span className="font-mono tnum">{int(meta.qualifyPossessions)}</span>{" "}
           possessions in a season get no percentile and are excluded from the
           leaderboard by default — per-possession rates are unstable in small
-          samples. And three seasons is three seasons: a career view this is
-          not.
+          samples. And {int(seasons.length)} seasons is{" "}
+          {int(seasons.length)} seasons: a career view this is not.
         </p>
       </div>
 

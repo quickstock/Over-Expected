@@ -1,12 +1,48 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useData } from "../data";
-import { int, lastName, signed } from "../lib/format";
+import { useData, usePlayerChunk } from "../data";
+import type { LeaderboardRow } from "../types";
+import { int, lastName, ordinal } from "../lib/format";
+import { divergingText } from "../lib/color";
 import { Delta } from "../components/Delta";
 import { useTitle } from "../lib/useTitle";
 import SegmentedControl from "../components/SegmentedControl";
 import GapArc from "../components/charts/GapArc";
 import Beeswarm from "../components/charts/Beeswarm";
+
+const POSITIONS = ["All", "Guard", "Forward", "Center"];
+
+function seasonShort(s: string) {
+  return `'${s.slice(2, 4)}-${s.slice(5)}`;
+}
+
+/** Compact extreme-player profile used in "The largest gaps". */
+function ExtremeCard({
+  row,
+  tag,
+}: {
+  row: LeaderboardRow;
+  tag: string;
+}) {
+  return (
+    <Link
+      to={`/player/${row.id}?season=${encodeURIComponent(row.season)}`}
+      className="group flex flex-col gap-1 border-l-2 py-1 pl-4 transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      style={{ borderColor: divergingText(row.per100) }}
+    >
+      <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
+        {tag}
+      </span>
+      <span className="font-display text-xl font-semibold text-ink group-hover:underline group-hover:underline-offset-4">
+        {row.name}
+      </span>
+      <span className="font-mono tnum text-sm text-ink-soft">
+        <Delta per100={row.per100} className="text-2xl" /> per 100 ·{" "}
+        {ordinal(Math.floor(row.pct ?? 0))} %ile · {int(row.poss)} poss
+      </span>
+    </Link>
+  );
+}
 
 export default function Landing() {
   const data = useData();
@@ -14,10 +50,14 @@ export default function Landing() {
   const seasons = data.meta.seasons;
   const latest = seasons[seasons.length - 1];
   const qualify = data.meta.qualifyPossessions;
+
   const [swarmSeason, setSwarmSeason] = useState(latest);
+  const [swarmPos, setSwarmPos] = useState("All");
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<LeaderboardRow | null>(null);
 
   const poolBySeason = useMemo(() => {
-    const m = new Map<string, typeof data.leaderboard>();
+    const m = new Map<string, LeaderboardRow[]>();
     for (const s of seasons) {
       m.set(
         s,
@@ -27,43 +67,135 @@ export default function Landing() {
     return m;
   }, [data.leaderboard, seasons, qualify]);
 
+  const seasonPool = poolBySeason.get(swarmSeason)!;
+  const swarmPool = useMemo(
+    () =>
+      swarmPos === "All"
+        ? seasonPool
+        : seasonPool.filter((r) => r.pos === swarmPos),
+    [seasonPool, swarmPos],
+  );
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return seasonPool
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .sort((a, b) => b.poss - a.poss)
+      .slice(0, 6);
+  }, [query, seasonPool]);
+
   const heroPool = poolBySeason.get(latest)!;
-  const top = useMemo(
-    () => [...heroPool].sort((a, b) => b.per100 - a.per100)[0],
+  const sorted = useMemo(
+    () => [...heroPool].sort((a, b) => b.per100 - a.per100),
     [heroPool],
   );
-  const topDetail = data.players[String(top.id)]?.seasons[latest];
-  const swarmPool = poolBySeason.get(swarmSeason)!;
+  const top = sorted[0];
+  const bottom = sorted[sorted.length - 1];
+  const latestChunk = usePlayerChunk(latest);
+  const topDetail =
+    latestChunk.status === "ready"
+      ? latestChunk.chunk[String(top.id)]
+      : undefined;
+
+  const swarmMin = Math.min(...swarmPool.map((r) => r.per100));
+  const swarmMax = Math.max(...swarmPool.map((r) => r.per100));
 
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-8">
-      {/* hero */}
+      {/* hero: the statistic, not a player */}
       <section className="pt-14 sm:pt-20">
         <p className="font-mono tnum text-xs text-ink-faint">
-          {latest} · {int(heroPool.length)} qualified players · shooting fouls
-          only
+          FTAOE · {seasonShort(seasons[0])} to {seasonShort(latest)} ·
+          shooting fouls only
         </p>
-        <h1 className="mt-4 max-w-[22ch] font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl">
-          {top.name} drew {int(Math.round(top.ftaoe))} more free throws than
-          the league rate predicts.
+        <h1 className="mt-4 font-display text-5xl font-bold leading-[1.02] tracking-tight text-ink sm:text-7xl">
+          The free-throw gap.
         </h1>
         <p className="mt-5 max-w-prose text-base leading-relaxed text-ink-soft sm:text-lg">
-          FTAOE counts shooting-foul free throws per 100 possessions against
-          the league-average rate. {lastName(top.name)} led the league at{" "}
-          <Delta per100={top.per100} className="text-base sm:text-lg" /> per
-          100 — {int(top.fta)} attempts where the average player's possessions
-          would produce {top.xfta.toFixed(1)}.
+          Some players live at the line; some never get there. FTAOE measures
+          the gap: shooting-foul free throws drawn per 100 possessions,
+          against the league-average rate. In {swarmSeason} it ran from{" "}
+          <Delta per100={swarmMin} className="text-base sm:text-lg" /> to{" "}
+          <Delta per100={swarmMax} className="text-base sm:text-lg" /> per
+          100.
         </p>
 
-        {topDetail && (
-          <div className="mt-10">
-            <GapArc games={topDetail.games} height={250} />
-            <p className="mt-2 text-xs text-ink-faint">
-              {top.name}, {latest}: cumulative shooting-foul free throws vs the
-              league-average pace, game by game.
-            </p>
+        {/* the league, adjustable */}
+        <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <SegmentedControl
+            ariaLabel="Season"
+            options={seasons.map((s) => ({
+              value: s,
+              label: s,
+              shortLabel: seasonShort(s),
+            }))}
+            value={swarmSeason}
+            onChange={(s) => {
+              setSwarmSeason(s);
+              setFound(null);
+              setQuery("");
+            }}
+          />
+          <SegmentedControl
+            ariaLabel="Position"
+            options={POSITIONS.map((p) => ({
+              value: p,
+              label: p === "All" ? "All" : p.slice(0, 1),
+            }))}
+            value={swarmPos}
+            onChange={setSwarmPos}
+          />
+          <div className="relative">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setFound(null);
+              }}
+              placeholder="Find a player"
+              aria-label="Find a player"
+              className="w-40 rounded-md border border-line bg-paper px-3 py-1.5 font-display text-[13px] text-ink placeholder:text-ink-faint focus:border-ink-faint focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ink"
+            />
+            {suggestions.length > 0 && !found && (
+              <ul className="absolute z-20 mt-1 w-56 overflow-hidden rounded-md border border-line bg-paper shadow-sm">
+                {suggestions.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFound(r);
+                        setQuery(r.name);
+                      }}
+                      className="flex w-full items-baseline justify-between px-3 py-2 text-left font-display text-[13px] text-ink transition-colors duration-100 hover:bg-wash focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
+                    >
+                      <span>{r.name}</span>
+                      <Delta per100={r.per100} className="text-xs" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        )}
+        </div>
+
+        <Beeswarm
+          className="mt-6"
+          players={swarmPool.map((r) => ({
+            id: r.id,
+            name: r.name,
+            per100: r.per100,
+          }))}
+          season={swarmSeason}
+          highlightIds={found ? [found.id] : []}
+        />
+        <p className="mt-2 text-xs text-ink-faint">
+          {int(swarmPool.length)} players with ≥ {int(qualify)} possessions,{" "}
+          {swarmSeason}
+          {swarmPos !== "All" ? `, ${swarmPos.toLowerCase()}s` : ""}. Every
+          dot is a player — tap one.
+        </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-5">
           <Link
@@ -73,10 +205,10 @@ export default function Landing() {
             Explore the leaderboard
           </Link>
           <Link
-            to={`/player/${top.id}?season=${encodeURIComponent(latest)}`}
+            to="/methodology"
             className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            See {lastName(top.name)}'s season →
+            How it's measured →
           </Link>
         </div>
       </section>
@@ -94,7 +226,7 @@ export default function Landing() {
             <span className="font-mono tnum">
               {data.meta.leagueRatePer100.toFixed(1)}
             </span>{" "}
-            per 100 across the three seasons).
+            per 100 across {int(seasons.length)} seasons).
           </p>
           <p>
             <strong className="font-semibold">What counts:</strong> shooting
@@ -125,45 +257,33 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* league distribution */}
+      {/* the largest gaps */}
       <section className="mt-20 border-t border-line pt-12 sm:mt-28">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-              Every qualified player
-            </h2>
-            <p className="mt-2 text-sm text-ink-soft">
-              {int(swarmPool.length)} players with ≥ {int(qualify)}{" "}
-              possessions, {swarmSeason}. Tap a dot.
-            </p>
-          </div>
-          <SegmentedControl
-            ariaLabel="Season"
-            options={seasons.map((s) => ({ value: s, label: s }))}
-            value={swarmSeason}
-            onChange={setSwarmSeason}
-          />
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          The largest gaps, {latest}
+        </h2>
+        <div className="mt-8 grid gap-6 sm:grid-cols-2">
+          <ExtremeCard row={top} tag="most above the league rate" />
+          <ExtremeCard row={bottom} tag="most below the league rate" />
         </div>
-        <Beeswarm
-          className="mt-8"
-          players={swarmPool.map((r) => ({
-            id: r.id,
-            name: r.name,
-            per100: r.per100,
-          }))}
-          season={swarmSeason}
-        />
-        <p className="mt-6 text-sm text-ink-soft">
-          The spread is enormous: from{" "}
-          <span className="font-mono tnum">
-            {signed(Math.min(...swarmPool.map((r) => r.per100)), 1)}
-          </span>{" "}
-          to{" "}
-          <span className="font-mono tnum">
-            {signed(Math.max(...swarmPool.map((r) => r.per100)), 1)}
-          </span>{" "}
-          free throws per 100 possessions against the same league baseline.
-        </p>
+        <div className="mt-10">
+          {topDetail ? (
+            <GapArc games={topDetail.games} height={250} />
+          ) : (
+            <div className="h-[250px] animate-pulse rounded bg-wash" aria-busy="true" />
+          )}
+          <p className="mt-2 text-xs text-ink-faint">
+            {top.name}, {latest}: cumulative shooting-foul free throws vs the
+            league-average pace — {int(top.fta)} attempts where the average
+            player's possessions would produce {top.xfta.toFixed(1)}.{" "}
+            <Link
+              to={`/player/${top.id}?season=${encodeURIComponent(latest)}`}
+              className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
+            >
+              {lastName(top.name)}'s page →
+            </Link>
+          </p>
+        </div>
       </section>
     </div>
   );

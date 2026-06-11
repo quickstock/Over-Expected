@@ -1,13 +1,17 @@
-"""Export the leak-free xFTA tables into one static JSON for the website.
+"""Export the leak-free xFTA tables into static JSON for the website.
 
 Sources (all clean / leak-free):
   - player_season_xfta_poss_lb_clean  -> leaderboard
   - possessions + predictions_poss_clean + games -> per-player per-game
-    cumulative actual vs baseline series (game index order = game_id order)
+    [actual, expected, possessions] series (game index order = game_id order)
   - training_fga + shots -> charged-FGA shot zones per player-season
   - predictions_poss_clean -> league distribution inputs + calibration bins
 
-Output: site/public/data.json (single file the frontend ships with).
+Output (chunked so the initial load stays small as seasons grow):
+  site/public/data.json              core: meta, leaderboard, distributions,
+                                     leagueZones, calibration
+  site/public/players-{season}.json  per-season player detail (games, zones),
+                                     fetched on demand by player pages
 """
 import json
 import sqlite3
@@ -113,7 +117,8 @@ qual_keys = set(zip(qualified["player_id"], qualified["season"]))
 
 per_game = pd.read_sql(
     """SELECT p.finisher_player_id AS player_id, g.season, p.game_id,
-              SUM(p.sfta) AS actual, SUM(pr.xfta) AS xfta
+              SUM(p.sfta) AS actual, SUM(pr.xfta) AS xfta,
+              COUNT(*) AS poss
        FROM possessions p
        JOIN games g ON g.GAME_ID = p.game_id
        JOIN predictions_poss_clean pr
@@ -150,21 +155,19 @@ for season, grp in league_zones.groupby("season"):
     ]
 
 # ------------------------------------------------------------ player payloads
-players = {}
-for r in lb[lb["possessions"] >= QUALIFY_POSS].itertuples():
-    pid, season = int(r.player_id), r.season
-    players.setdefault(pid, {"name": r.player_name, "seasons": {}})
+# Chunked per season: players_by_season[season][player_id] = {games, zones}.
+players_by_season: dict[str, dict[str, dict]] = {}
 
 pg_grouped = per_game.groupby(["player_id", "season"])
 zn_grouped = zones.groupby(["player_id", "season"])
 
 for (pid, season) in qual_keys:
-    entry = players[pid]["seasons"].setdefault(season, {})
+    entry: dict = {}
     try:
         g = pg_grouped.get_group((pid, season))
         entry["games"] = [
-            [int(a), round(float(x), 3)]
-            for a, x in zip(g["actual"], g["xfta"])
+            [int(a), round(float(x), 3), int(n)]
+            for a, x, n in zip(g["actual"], g["xfta"], g["poss"])
         ]
     except KeyError:
         entry["games"] = []
@@ -182,6 +185,7 @@ for (pid, season) in qual_keys:
         ]
     except KeyError:
         entry["zones"] = []
+    players_by_season.setdefault(season, {})[str(pid)] = entry
 
 # ------------------------------------------------------------- calibration
 pred = pd.read_sql(
@@ -230,14 +234,23 @@ out = {
     "leaderboard": leaderboard,
     "distributions": distributions,
     "leagueZones": league_zone_out,
-    "players": {str(k): v for k, v in players.items()},
     "calibration": calibration,
 }
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
+# Remove stale chunks from previous exports before writing.
+for old in OUT.parent.glob("players-*.json"):
+    old.unlink()
 OUT.write_text(json.dumps(out, separators=(",", ":")))
 size_mb = OUT.stat().st_size / 1e6
-print(f"Wrote {OUT} ({size_mb:.2f} MB)")
+print(f"Wrote {OUT} ({size_mb:.2f} MB core)")
+n_pages = 0
+for season, payload in sorted(players_by_season.items()):
+    chunk = OUT.parent / f"players-{season}.json"
+    chunk.write_text(json.dumps(payload, separators=(",", ":")))
+    n_pages += len(payload)
+    print(f"  {chunk.name}: {len(payload)} players "
+          f"({chunk.stat().st_size / 1e6:.2f} MB)")
 print(f"  leaderboard rows: {len(leaderboard)}")
-print(f"  player pages:     {len(players)}")
+print(f"  player-season pages: {n_pages}")
 print(f"  league rate/100:  {meta['leagueRatePer100']}")

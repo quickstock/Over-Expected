@@ -18,6 +18,17 @@ JSON_PATH = ROOT / "site" / "public" / "data.json"
 
 raw_text = JSON_PATH.read_text()
 data = json.loads(raw_text)
+# Chunked player payloads: stitch back into data["players"] for the checks,
+# and include chunk text in the NaN scan.
+data["players"] = {}
+chunk_sizes = {}
+for chunk in sorted(JSON_PATH.parent.glob("players-*.json")):
+    season = chunk.stem.replace("players-", "")
+    txt = chunk.read_text()
+    raw_text += txt
+    chunk_sizes[chunk.name] = chunk.stat().st_size / 1e6
+    for pid, det in json.loads(txt).items():
+        data["players"].setdefault(pid, {"seasons": {}})["seasons"][season] = det
 conn = sqlite3.connect(DB_PATH)
 cur = conn.cursor()
 
@@ -155,9 +166,10 @@ report(
 # ---------------------------------------------------------------- check 6
 size_mb = JSON_PATH.stat().st_size / 1e6
 report(
-    "6. File size < 2 MB raw",
+    "6. Core file < 2 MB raw (player detail is chunked per season)",
     size_mb < 2.0,
-    f"{size_mb:.2f} MB ({JSON_PATH})",
+    f"core {size_mb:.2f} MB; chunks: "
+    + ", ".join(f"{k} {v:.2f} MB" for k, v in chunk_sizes.items()),
 )
 
 # ------------------------------------------------------------- supplementary

@@ -20,16 +20,16 @@ export interface ZoneAgg {
   share: number;
 }
 
+/** Per game, in schedule order: [actual shooting-foul FTA, expected, possessions]. */
+export type GameLine = [number, number, number];
+
 export interface SeasonDetail {
-  /** Per game, in schedule order: [actual shooting-foul FTA, baseline xFTA] */
-  games: [number, number][];
+  games: GameLine[];
   zones: ZoneAgg[];
 }
 
-export interface PlayerData {
-  name: string;
-  seasons: Record<string, SeasonDetail>;
-}
+/** players-{season}.json: playerId -> detail. */
+export type PlayerSeasonChunk = Record<string, SeasonDetail>;
 
 export interface CalibrationBin {
   pred: number;
@@ -50,6 +50,5 @@ export interface SiteData {
   leaderboard: LeaderboardRow[];
   distributions: Record<string, number[]>;
   leagueZones: Record<string, { zone: string; area: string; share: number }[]>;
-  players: Record<string, PlayerData>;
   calibration: CalibrationBin[];
 }

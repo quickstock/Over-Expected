@@ -170,28 +170,36 @@ export default function Beeswarm({
           </text>
 
           {dots.map((d) => (
-            <circle
+            <g
               key={d.id}
-              cx={d.px}
-              cy={d.py}
-              r={hover?.id === d.id ? r + 1.5 : r}
-              fill={divergingColor(d.per100)}
-              stroke={hover?.id === d.id ? "var(--color-ink)" : "none"}
-              strokeWidth={1}
-              className="cursor-pointer transition-[r] duration-100"
-              onPointerEnter={() => setHover(d)}
-              onPointerLeave={() => setHover(null)}
-              onClick={() =>
-                navigate(`/player/${d.id}?season=${encodeURIComponent(season)}`)
-              }
-            />
+              style={{
+                transform: `translate(${d.px.toFixed(1)}px, ${d.py.toFixed(1)}px)`,
+                transition: `transform 560ms var(--ease-out-strong) ${(
+                  ((d.px - pad.left) / Math.max(1, innerW)) * 180
+                ).toFixed(0)}ms, opacity 400ms ease`,
+              }}
+              className="opacity-100 starting:opacity-0"
+            >
+              <circle
+                r={hover?.id === d.id ? r + 1.5 : r}
+                fill={divergingColor(d.per100)}
+                stroke={hover?.id === d.id ? "var(--color-ink)" : "none"}
+                strokeWidth={1}
+                className="cursor-pointer transition-[r,fill] duration-150"
+                onPointerEnter={() => setHover(d)}
+                onPointerLeave={() => setHover(null)}
+                onClick={() =>
+                  navigate(`/player/${d.id}?season=${encodeURIComponent(season)}`)
+                }
+              />
+            </g>
           ))}
 
           {/* direct name labels with leader lines */}
           {callouts.map((c) => (
             <g
-              key={`label-${c.id}`}
-              className="cursor-pointer"
+              key={`label-${c.id}-${season}`}
+              className="cursor-pointer opacity-100 transition-opacity delay-300 duration-300 starting:opacity-0"
               role="link"
               tabIndex={0}
               aria-label={`${c.name}, ${signed(c.per100, 1)} per 100`}

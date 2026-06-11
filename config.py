@@ -3,14 +3,18 @@
 Feature *selection* happens at model time. The tables are a superset.
 """
 
-# Seasons to pull (regular season only)
-SEASONS = ["2022-23", "2023-24", "2024-25"]
+# Seasons to pull (regular season only).
+# 2020-21 is the earliest included: 2019-20 was interrupted/bubble-distorted.
+SEASONS = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
 
 # Prior-season mapping for player-rate leakage prevention
 PRIOR_SEASON = {
+    "2020-21": "2019-20",
+    "2021-22": "2020-21",
     "2022-23": "2021-22",
     "2023-24": "2022-23",
     "2024-25": "2023-24",
+    "2025-26": "2024-25",
 }
 
 # Context-only model features (superset — headline model uses a subset)

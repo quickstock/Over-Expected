@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { flushSync } from "react-dom";
 import type { CSSProperties } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useData } from "../data";
@@ -116,9 +117,19 @@ export default function Leaderboard() {
   );
 
   const update = (patch: Record<string, string>) => {
-    const next = new URLSearchParams(params);
-    for (const [k, v] of Object.entries(patch)) next.set(k, v);
-    setParams(next, { replace: false });
+    const apply = () => {
+      const next = new URLSearchParams(params);
+      for (const [k, v] of Object.entries(patch)) next.set(k, v);
+      setParams(next, { replace: false });
+    };
+    // Animated reorder via the View Transitions API where available;
+    // plain update under reduced motion or older browsers.
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduce && "startViewTransition" in document) {
+      document.startViewTransition(() => flushSync(apply));
+    } else {
+      apply();
+    }
   };
   const onSort = (k: SortKey) =>
     update(
@@ -155,7 +166,11 @@ export default function Leaderboard() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-3 px-5 py-3 sm:px-8">
           <SegmentedControl
             ariaLabel="Season"
-            options={seasons.map((s) => ({ value: s, label: s }))}
+            options={seasons.map((s) => ({
+              value: s,
+              label: s,
+              shortLabel: `'${s.slice(2, 4)}-${s.slice(5)}`,
+            }))}
             value={season}
             onChange={(s) => update({ season: s })}
           />
@@ -231,7 +246,14 @@ export default function Leaderboard() {
         ) : (
           <ol>
             {rows.map((r, i) => (
-              <li key={`${r.id}-${r.season}`}>
+              <li
+                key={`${r.id}-${r.season}`}
+                style={
+                  i < 40
+                    ? ({ viewTransitionName: `lb-${r.id}` } as React.CSSProperties)
+                    : undefined
+                }
+              >
                 <Link
                   to={`/player/${r.id}?season=${encodeURIComponent(r.season)}`}
                   className="group block border-b border-line-soft transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"

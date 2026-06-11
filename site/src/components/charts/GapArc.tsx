@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { GameLine } from "../../types";
 import { cumulativeArc } from "../../lib/series";
 import { signed } from "../../lib/format";
 import { divergingText } from "../../lib/color";
@@ -8,11 +9,12 @@ const WARM_FILL = "oklch(0.62 0.17 38 / 0.22)";
 const COOL_FILL = "oklch(0.55 0.11 252 / 0.20)";
 
 interface Props {
-  /** Per game, schedule order: [actual shooting-foul FTA, expected at league rate]. */
-  games: [number, number][];
+  /** Per game, schedule order: [actual FTA, expected, possessions]. */
+  games: GameLine[];
   height?: number;
-  /** Label for the expected line; defaults to "league-average pace". */
   showTooltip?: boolean;
+  /** Draw-on reveal when scrolled into view (reduced-motion safe). */
+  animate?: boolean;
   className?: string;
 }
 
@@ -24,16 +26,33 @@ export default function GapArc({
   games,
   height = 280,
   showTooltip = true,
+  animate = true,
   className = "",
 }: Props) {
   const [wrapRef, width] = useMeasure<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(!animate);
+
+  useEffect(() => {
+    if (!animate || revealed || !wrapRef.current) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setRevealed(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    io.observe(wrapRef.current);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animate, revealed]);
 
   const arc = useMemo(() => cumulativeArc(games), [games]);
   const n = arc.length;
 
   const pad = { top: 18, right: 14, bottom: 26, left: 8 };
-  // Reserve room on the right for direct end labels.
   const labelW = width < 480 ? 92 : 128;
   const innerW = Math.max(40, width - pad.left - pad.right - labelW);
   const innerH = height - pad.top - pad.bottom;
@@ -78,7 +97,6 @@ export default function GapArc({
       const p = pts[i];
       const s = Math.sign(p.diff);
       if (s !== runSign && runSign !== 0 && s !== 0) {
-        // Linear crossing between i-1 and i.
         const prev = pts[i - 1];
         const dPrev = prev.ya - prev.ye;
         const dCur = p.ya - p.ye;
@@ -109,7 +127,6 @@ export default function GapArc({
 
   const last = arc[n - 1];
   const finalDiff = last.cumActual - last.cumExpected;
-  // Keep the two end labels from colliding.
   const yActualLabel = y(last.cumActual);
   const yExpectedLabel = y(last.cumExpected);
   const tooClose = Math.abs(yActualLabel - yExpectedLabel) < 30;
@@ -118,6 +135,17 @@ export default function GapArc({
 
   const hovered = hover !== null ? arc[hover] : null;
   const ticks = n > 20 ? [1, ...[20, 40, 60, 80].filter((t) => t < n), n] : [1, n];
+
+  // Reveal: gap + expected sweep left-to-right under a clip; the actual
+  // line draws via normalized dash; labels land last.
+  const sweepStyle: React.CSSProperties = {
+    clipPath: revealed ? "inset(-2% -2% -2% -2%)" : "inset(-2% 102% -2% -2%)",
+    transition: "clip-path 1000ms var(--ease-out-strong)",
+  };
+  const labelStyle: React.CSSProperties = {
+    opacity: revealed ? 1 : 0,
+    transition: "opacity 420ms ease 700ms",
+  };
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
@@ -128,20 +156,19 @@ export default function GapArc({
           role="img"
           aria-label={`Cumulative free throw attempts from shooting fouls versus league-average pace across ${n} games. Final: ${last.cumActual} actual, ${last.cumExpected.toFixed(0)} expected, gap ${signed(finalDiff, 1)}.`}
         >
-          {/* gap fill: the statistic drawn as a shape */}
-          {gapPaths.map((p, i) => (
-            <path key={i} d={p.d} fill={p.warm ? WARM_FILL : COOL_FILL} />
-          ))}
-          {/* expected at league-average pace */}
-          <path
-            d={expectedPath}
-            fill="none"
-            stroke="var(--color-ink-faint)"
-            strokeWidth={1.5}
-            strokeDasharray="2 4"
-            strokeLinecap="round"
-          />
-          {/* actual */}
+          <g style={sweepStyle}>
+            {gapPaths.map((p, i) => (
+              <path key={i} d={p.d} fill={p.warm ? WARM_FILL : COOL_FILL} />
+            ))}
+            <path
+              d={expectedPath}
+              fill="none"
+              stroke="var(--color-ink-faint)"
+              strokeWidth={1.5}
+              strokeDasharray="2 4"
+              strokeLinecap="round"
+            />
+          </g>
           <path
             d={actualPath}
             fill="none"
@@ -149,9 +176,14 @@ export default function GapArc({
             strokeWidth={2.25}
             strokeLinejoin="round"
             strokeLinecap="round"
+            pathLength={1}
+            style={{
+              strokeDasharray: 1,
+              strokeDashoffset: revealed ? 0 : 1,
+              transition: "stroke-dashoffset 1000ms var(--ease-out-strong)",
+            }}
           />
 
-          {/* x axis: game ticks */}
           {ticks.map((t) => (
             <g key={t}>
               <line
@@ -174,12 +206,7 @@ export default function GapArc({
             </g>
           ))}
 
-          {/* direct end labels, Pudding style */}
-          <g
-            className="font-mono tnum"
-            fontSize={11.5}
-            textAnchor="start"
-          >
+          <g className="font-mono tnum" fontSize={11.5} textAnchor="start" style={labelStyle}>
             <text
               x={x(n) + 7}
               y={yActualLabel + (actualUp ? -spread : spread) + 4}
@@ -206,7 +233,6 @@ export default function GapArc({
             </text>
           </g>
 
-          {/* hover guide */}
           {hovered && (
             <g pointerEvents="none">
               <line
