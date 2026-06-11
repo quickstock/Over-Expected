@@ -9,6 +9,7 @@ import SegmentedControl from "../components/SegmentedControl";
 import GapArc from "../components/charts/GapArc";
 import FormStrip from "../components/charts/FormStrip";
 import CourtZones from "../components/charts/CourtZones";
+import FoulLedger from "../components/player/FoulLedger";
 
 const FORM_WINDOWS = ["5", "10", "15", "20"];
 
@@ -19,8 +20,8 @@ function NotFound({ qualify }: { qualify: number }) {
         No qualified season for this player.
       </p>
       <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-        Player pages require at least {int(qualify)} possessions in a season —
-        below that, per-possession rates are too unstable to present.
+        Player pages require at least {int(qualify)} possessions in a season.
+        Below that, per-possession rates are too unstable to present.
       </p>
       <Link
         to="/leaderboard"
@@ -64,6 +65,7 @@ export default function Player() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
   const [formWindow, setFormWindow] = useState("10");
+  const [courtMode, setCourtMode] = useState("attempts");
 
   const qualify = data.meta.qualifyPossessions;
 
@@ -94,6 +96,7 @@ export default function Player() {
 
   const detail =
     chunk.status === "ready" ? chunk.chunk[String(row.id)] : undefined;
+  const fouls = detail?.fouls;
 
   const setSeason = (s: string) => {
     const next = new URLSearchParams(params);
@@ -215,7 +218,7 @@ export default function Player() {
               Form
             </h2>
             <p className="mt-1.5 text-sm text-ink-soft">
-              Trailing {formWindow}-game FTAOE per 100 possessions — the
+              Trailing {formWindow}-game FTAOE per 100 possessions: the
               leaderboard's unit, watched move through the season.
             </p>
           </div>
@@ -237,16 +240,43 @@ export default function Player() {
         )}
       </section>
 
-      {/* shot diet */}
+      {/* where it happens */}
       <section className="mt-14">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
-          Where he attacks
-        </h2>
-        <p className="mt-1.5 text-sm text-ink-soft">
-          Charged field-goal attempts by zone, {season}.
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+              Where it happens
+            </h2>
+            <p className="mt-1.5 text-sm text-ink-soft">
+              {fouls && courtMode === "fouls"
+                ? `And-1s by zone, ${season}: the only shooting fouls with an official location.`
+                : `Charged field-goal attempts by zone, ${season}.`}
+            </p>
+          </div>
+          {fouls && fouls.located > 0 && (
+            <SegmentedControl
+              ariaLabel="Court view"
+              options={[
+                { value: "attempts", label: "All attempts" },
+                { value: "fouls", label: "And-1s" },
+              ]}
+              value={courtMode}
+              onChange={setCourtMode}
+            />
+          )}
+        </div>
         {detail ? (
-          <CourtZones zones={detail.zones} className="mt-6 max-w-[520px]" />
+          <CourtZones
+            zones={
+              fouls && courtMode === "fouls" ? fouls.zones : detail.zones
+            }
+            footnote={
+              fouls && courtMode === "fouls"
+                ? `${int(fouls.located)} of ${int(fouls.and1)} and-1s have an official shot location. Fouled misses are itemized below the court, never placed.`
+                : undefined
+            }
+            className="mt-6 max-w-[520px]"
+          />
         ) : chunk.status === "error" ? null : (
           <div
             className="mt-6 aspect-[500/434] max-w-[520px] animate-pulse rounded bg-wash"
@@ -254,6 +284,20 @@ export default function Player() {
           />
         )}
       </section>
+
+      {/* the ledger */}
+      {fouls && (
+        <section className="mt-14">
+          <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+            Every free throw, accounted for
+          </h2>
+          <p className="mt-1.5 text-sm text-ink-soft">
+            And-1s award one free throw, fouled 2-pt misses two, fouled 3-pt
+            misses three. The column sums to the season total exactly.
+          </p>
+          <FoulLedger fouls={fouls} fta={row.fta} className="mt-6" />
+        </section>
+      )}
 
       <p className="mt-16 border-t border-line pt-6">
         <Link

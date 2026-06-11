@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
         <p className="max-w-2xl text-sm leading-relaxed text-ink-soft">
           FTAOE is descriptive. It blends playstyle, contact-seeking skill, and
-          officiating — it does not separate them, and it does not prove
+          officiating; it does not separate them, and it does not prove
           referee bias. <Link to="/methodology" className="underline underline-offset-2 hover:text-ink">How it works</Link>.
         </p>
         <p className="mt-4 text-xs text-ink-faint">

@@ -241,7 +241,7 @@ export default function Leaderboard() {
 
         {rows.length === 0 ? (
           <p className="py-16 text-center text-sm text-ink-faint">
-            No players match — lower the possession floor.
+            No players match. Lower the possession floor.
           </p>
         ) : (
           <ol>
@@ -311,7 +311,7 @@ export default function Leaderboard() {
         {minPoss < qualify && (
           <p className="mt-4 text-xs leading-relaxed text-ink-faint">
             Percentiles are computed within the qualified pool (≥ {int(qualify)}{" "}
-            possessions); players below the threshold show — instead of an
+            possessions); players below the threshold show a dash instead of an
             unstable percentile.
           </p>
         )}

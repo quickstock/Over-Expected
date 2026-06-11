@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useData, usePlayerChunk } from "../data";
 import type { LeaderboardRow } from "../types";
 import { int, lastName, ordinal } from "../lib/format";
-import { divergingText } from "../lib/color";
 import { Delta } from "../components/Delta";
 import { useTitle } from "../lib/useTitle";
 import SegmentedControl from "../components/SegmentedControl";
@@ -27,18 +26,20 @@ function ExtremeCard({
   return (
     <Link
       to={`/player/${row.id}?season=${encodeURIComponent(row.season)}`}
-      className="group flex flex-col gap-1 border-l-2 py-1 pl-4 transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      style={{ borderColor: divergingText(row.per100) }}
+      className="group flex flex-col gap-1.5 border-t border-line pt-4 transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
         {tag}
       </span>
-      <span className="font-display text-xl font-semibold text-ink group-hover:underline group-hover:underline-offset-4">
-        {row.name}
+      <span className="flex flex-wrap items-baseline gap-x-3">
+        <span className="font-display text-2xl font-semibold text-ink group-hover:underline group-hover:underline-offset-4">
+          {row.name}
+        </span>
+        <Delta per100={row.per100} className="text-2xl" />
       </span>
       <span className="font-mono tnum text-sm text-ink-soft">
-        <Delta per100={row.per100} className="text-2xl" /> per 100 ·{" "}
-        {ordinal(Math.floor(row.pct ?? 0))} %ile · {int(row.poss)} poss
+        per 100 · {ordinal(Math.floor(row.pct ?? 0))} %ile · {int(row.poss)}{" "}
+        poss
       </span>
     </Link>
   );
@@ -194,7 +195,7 @@ export default function Landing() {
           {int(swarmPool.length)} players with ≥ {int(qualify)} possessions,{" "}
           {swarmSeason}
           {swarmPos !== "All" ? `, ${swarmPos.toLowerCase()}s` : ""}. Every
-          dot is a player — tap one.
+          dot is a player. Tap one.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-5">
@@ -220,7 +221,7 @@ export default function Landing() {
         </h2>
         <div className="mt-6 max-w-prose space-y-4 text-[15px] leading-relaxed text-ink sm:text-base">
           <p>
-            FTAOE — free throw attempts over expected — measures how many
+            FTAOE (free throw attempts over expected) measures how many
             shooting-foul free throws a player draws per 100 possessions,
             compared with the league-average rate (
             <span className="font-mono tnum">
@@ -230,7 +231,7 @@ export default function Landing() {
           </p>
           <p>
             <strong className="font-semibold">What counts:</strong> shooting
-            fouls only — and-1s and fouled misses. Free throws from the
+            fouls only: and-1s and fouled misses. Free throws from the
             bonus, technicals, flagrants, and off-ball fouls are excluded.
           </p>
           <p>
@@ -245,7 +246,7 @@ export default function Landing() {
             </strong>{" "}
             the number blends playstyle, contact-seeking skill, and
             officiating. It does not isolate any of them, and it does not
-            prove anything about referees — that stays an open question.{" "}
+            prove anything about referees; that stays an open question.{" "}
             <Link
               to="/methodology"
               className="underline underline-offset-2 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -274,7 +275,7 @@ export default function Landing() {
           )}
           <p className="mt-2 text-xs text-ink-faint">
             {top.name}, {latest}: cumulative shooting-foul free throws vs the
-            league-average pace — {int(top.fta)} attempts where the average
+            league-average pace: {int(top.fta)} attempts where the average
             player's possessions would produce {top.xfta.toFixed(1)}.{" "}
             <Link
               to={`/player/${top.id}?season=${encodeURIComponent(latest)}`}

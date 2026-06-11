@@ -154,6 +154,46 @@ for season, grp in league_zones.groupby("season"):
         for r in grp.itertuples()
     ]
 
+# ----------------------------------------------------- shooting-foul detail
+# FT counts by trip type (identity: and1+sf2+sf3 == actual FTA), plus the
+# located and-1 shots for the foul-origin court view.
+fouls_agg = pd.read_sql(
+    """SELECT p.finisher_player_id AS player_id, g.season,
+              SUM(p.ft_and1) AS and1, SUM(p.ft_sf2) AS sf2,
+              SUM(p.ft_sf3) AS sf3
+       FROM possessions p
+       JOIN games g ON g.GAME_ID = p.game_id
+       WHERE p.finisher_player_id IS NOT NULL
+       GROUP BY p.finisher_player_id, g.season""",
+    conn,
+)
+fouls_agg["player_id"] = fouls_agg["player_id"].astype(int)
+fouls_by_key = {
+    (int(r.player_id), r.season): (int(r.and1), int(r.sf2), int(r.sf3))
+    for r in fouls_agg.itertuples()
+}
+
+# Only and-1s where the shot maker also finished the possession (the FT
+# counts above attribute whole possessions to the finisher; ~0.2% of and-1
+# events belong to multi-trip possessions finished by a teammate and are
+# dropped here so located <= and1 holds per player).
+and1_zones = pd.read_sql(
+    """SELECT a.player_id, g.season, s.shot_zone_basic AS zone,
+              s.shot_zone_area AS area, COUNT(*) AS n
+       FROM and1_shots a
+       JOIN games g ON g.GAME_ID = a.game_id
+       JOIN possessions p
+         ON p.game_id = a.game_id
+        AND p.possession_number = a.possession_number
+        AND p.finisher_player_id = a.player_id
+       JOIN shots s ON s.game_id = a.game_id AND s.event_id = a.event_id
+       WHERE s.shot_zone_basic IS NOT NULL AND s.shot_zone_basic != ''
+       GROUP BY a.player_id, g.season, s.shot_zone_basic, s.shot_zone_area""",
+    conn,
+)
+and1_zones["player_id"] = and1_zones["player_id"].astype(int)
+a1_grouped = and1_zones.groupby(["player_id", "season"])
+
 # ------------------------------------------------------------ player payloads
 # Chunked per season: players_by_season[season][player_id] = {games, zones}.
 players_by_season: dict[str, dict[str, dict]] = {}
@@ -185,6 +225,28 @@ for (pid, season) in qual_keys:
         ]
     except KeyError:
         entry["zones"] = []
+    and1, sf2, sf3 = fouls_by_key.get((pid, season), (0, 0, 0))
+    try:
+        az = a1_grouped.get_group((pid, season))
+        located = int(az["n"].sum())
+        a1z = [
+            {
+                "zone": zr.zone,
+                "area": zr.area,
+                "n": int(zr.n),
+                "share": round(zr.n / located, 4),
+            }
+            for zr in az.itertuples()
+        ]
+    except KeyError:
+        located, a1z = 0, []
+    entry["fouls"] = {
+        "and1": and1,
+        "sf2": sf2,
+        "sf3": sf3,
+        "located": located,
+        "zones": a1z,
+    }
     players_by_season.setdefault(season, {})[str(pid)] = entry
 
 # ------------------------------------------------------------- calibration

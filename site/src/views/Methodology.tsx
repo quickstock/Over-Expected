@@ -153,7 +153,7 @@ export default function Methodology() {
         Methodology
       </h1>
       <p className="mt-4 text-base leading-relaxed text-ink-soft sm:text-lg">
-        FTAOE — free throw attempts over expected — is how many shooting-foul
+        FTAOE, free throw attempts over expected, is how many shooting-foul
         free throws a player draws per 100 possessions, compared with the
         league-average rate. FTAOE = actual FTA − expected FTA; the per-100
         version divides by the possessions a player finished.
@@ -166,7 +166,7 @@ export default function Methodology() {
           (two or three attempts). Free throws from the bonus on non-shooting
           fouls, technicals, and flagrants are excluded, as are off-ball
           fouls. Attempts are attributed to the player who finished the
-          possession — the one fouled in the act of shooting.
+          possession: the one fouled in the act of shooting.
         </p>
         <p>
           The data is possession-level play-by-play:{" "}
@@ -209,12 +209,12 @@ export default function Methodology() {
         <p>
           We also fit a context model to test whether game state explains who
           gets fouled: a Poisson GLM (log link, no interactions) on four
-          pre-foul features — period, seconds remaining in the period, score
+          pre-foul features: period, seconds remaining in the period, score
           margin, and a late-game bonus proxy. It is validated by season
           cross-fitting: train on two seasons, predict the held-out third, so
           every prediction is out-of-fold. Earlier versions of this model
           included shot location and play-resolution features and looked far
-          stronger — that strength was leakage (the features encoded how the
+          stronger; that strength was leakage (the features encoded how the
           possession ended), and they were removed.
         </p>
         <p className="border-l-2 border-line pl-4 text-ink">
@@ -222,7 +222,7 @@ export default function Methodology() {
           Poisson deviance by just{" "}
           <span className="font-mono tnum">{meta.modelLiftPct.toFixed(2)}%</span>{" "}
           over the flat league-average baseline. Game context adds essentially
-          nothing. FTAOE is, in practice, "versus league average" — and the
+          nothing. FTAOE is, in practice, "versus league average", and the
           site presents it that way.
         </p>
         <table className="mt-2 w-full max-w-sm border-collapse text-sm">
@@ -257,8 +257,8 @@ export default function Methodology() {
         <p>
           Each dot is roughly{" "}
           <span className="font-mono tnum">{int(calibration[0].n)}</span>{" "}
-          possessions. The bins sit near the diagonal — the model isn't
-          systematically over- or under-calling fouls — but look at the
+          possessions. The bins sit near the diagonal (the model isn't
+          systematically over- or under-calling fouls), but look at the
           x-axis: from the lowest to the highest decile it separates
           possessions by only about{" "}
           <span className="font-mono tnum">{spreadPer100}</span> free throws
@@ -273,7 +273,7 @@ export default function Methodology() {
         <p>
           FTAOE is descriptive. A high number blends playstyle (rim pressure,
           post touches, late-clock creation), contact-seeking skill, and
-          officiating — and this method cannot separate those three. In
+          officiating, and this method cannot separate those three. In
           particular, it does not isolate and does not prove referee bias, in
           either direction, for any player. That question stays open.
         </p>
@@ -282,7 +282,7 @@ export default function Methodology() {
           who draw off-ball fouls are out of scope. Players below{" "}
           <span className="font-mono tnum">{int(meta.qualifyPossessions)}</span>{" "}
           possessions in a season get no percentile and are excluded from the
-          leaderboard by default — per-possession rates are unstable in small
+          leaderboard by default; per-possession rates are unstable in small
           samples. And {int(seasons.length)} seasons is{" "}
           {int(seasons.length)} seasons: a career view this is not.
         </p>
@@ -291,7 +291,7 @@ export default function Methodology() {
       <H2>Data notes</H2>
       <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
         <p>
-          Shot-zone charts use charged field-goal attempts only — fouled
+          Shot-zone charts use charged field-goal attempts only; fouled
           misses have no location, so no chart on this site claims to show
           where fouls happen. Team labels are derived from the possession
           data itself (the teams a player finished possessions for, in order

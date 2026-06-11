@@ -51,10 +51,12 @@ const LABELS: Record<
 
 interface Props {
   zones: ZoneAgg[];
+  /** Replaces the default honesty footnote (total count stays). */
+  footnote?: string;
   className?: string;
 }
 
-export default function CourtZones({ zones, className = "" }: Props) {
+export default function CourtZones({ zones, footnote, className = "" }: Props) {
   const { byZone, total, backcourt } = useMemo(() => {
     const byZone = new Map<string, { n: number; share: number }>();
     for (const z of zones) {
@@ -102,6 +104,7 @@ export default function CourtZones({ zones, className = "" }: Props) {
               d={z.d}
               fill={fill(v.share)}
               fillRule={z.evenodd ? "evenodd" : "nonzero"}
+              style={{ transition: "fill 300ms var(--ease-out-strong)" }}
             >
               <title>
                 {`${z.key}: ${pctLabel(v.share)} (${int(v.n)} attempts)`}
@@ -159,11 +162,15 @@ export default function CourtZones({ zones, className = "" }: Props) {
         })}
       </svg>
       <p className="mt-2 text-xs text-ink-faint">
-        {int(total)} charged attempts
-        {backcourt.share > 0 &&
-          ` · ${(backcourt.share * 100).toFixed(1)}% from beyond half court`}
-        . Fouled misses are not charged shots and have no location, so they
-        cannot appear here.
+        {footnote ?? (
+          <>
+            {int(total)} charged attempts
+            {backcourt.share > 0 &&
+              ` · ${(backcourt.share * 100).toFixed(1)}% from beyond half court`}
+            . Fouled misses are not charged shots and have no location, so
+            they cannot appear here.
+          </>
+        )}
       </p>
     </div>
   );

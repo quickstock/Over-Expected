@@ -163,6 +163,36 @@ report(
     f"{n_zone_sets} zone sets, max |sum-1| = {worst_sum - 1.0:.6f} | " + " | ".join(lines),
 )
 
+# ---------------------------------------------------------------- check 5b
+ok5b = True
+worst_key = None
+n_checked = 0
+for pid, p5 in data["players"].items():
+    for season, det in p5["seasons"].items():
+        f = det.get("fouls")
+        if f is None:
+            continue
+        n_checked += 1
+        fta = lb_by_key[(int(pid), season)]["fta"]
+        if f["and1"] + f["sf2"] + f["sf3"] != fta:
+            ok5b = False
+            worst_key = (pid, season, f, fta)
+        if f["located"] > f["and1"]:
+            ok5b = False
+            worst_key = (pid, season, f, fta)
+        if f["zones"]:
+            zsum = sum(z["share"] for z in f["zones"])
+            if abs(zsum - 1.0) > 0.01:
+                ok5b = False
+                worst_key = (pid, season, "zone share sum", zsum)
+report(
+    "5b. Foul ledger identity: and1+sf2+sf3 == actual FTA; located <= and1; "
+    "and-1 zone shares sum to 1",
+    ok5b and n_checked > 0,
+    f"{n_checked} player-seasons checked"
+    + (f"; first failure: {worst_key}" if worst_key else "; all exact"),
+)
+
 # ---------------------------------------------------------------- check 6
 size_mb = JSON_PATH.stat().st_size / 1e6
 report(

@@ -23,9 +23,28 @@ export interface ZoneAgg {
 /** Per game, in schedule order: [actual shooting-foul FTA, expected, possessions]. */
 export type GameLine = [number, number, number];
 
+/**
+ * Shooting fouls itemized. FT counts by trip type; the identity
+ * and1 + sf2 + sf3 === season actual FTA holds exactly by construction.
+ */
+export interface FoulBreakdown {
+  /** FTs from and-1s (one per trip). */
+  and1: number;
+  /** FTs from fouled 2-pt misses (two per trip). */
+  sf2: number;
+  /** FTs from fouled 3-pt misses (three per trip). */
+  sf3: number;
+  /** And-1s with an officially located made shot (≤ and1). */
+  located: number;
+  /** Zones of located and-1 shots; shares sum to 1 over `located`. */
+  zones: ZoneAgg[];
+}
+
 export interface SeasonDetail {
   games: GameLine[];
   zones: ZoneAgg[];
+  /** Absent in exports made before the foul itemization existed. */
+  fouls?: FoulBreakdown;
 }
 
 /** players-{season}.json: playerId -> detail. */

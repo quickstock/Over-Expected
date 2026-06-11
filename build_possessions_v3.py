@@ -351,13 +351,23 @@ def possession_sfta_and_finisher(p: Possession):
     contamination_count = 0
     ft_shooter = None
     last_made = None
+    last_made_event = None
     last_shooter = None
     last_turnover = None
+    # Shooting-foul FT buckets: identity ft_and1+ft_sf2+ft_sf3 == sfta
+    # holds by construction (every kept FT lands in exactly one bucket).
+    ft_and1 = 0
+    ft_sf2 = 0
+    ft_sf3 = 0
+    and1_events: set[tuple[int, int]] = set()  # (made-FG event num, player)
 
     for e in p.events:
         if isinstance(e, FG):
             if e.is_made and e.player1_id:
                 last_made = int(e.player1_id)
+                last_made_event = getattr(e, "actionNumber", None) or getattr(
+                    e, "event_num", None
+                )
             if e.player1_id:
                 last_shooter = int(e.player1_id)
         elif isinstance(e, FTBase):
@@ -397,6 +407,22 @@ def possession_sfta_and_finisher(p: Possession):
                     sfta += 1
                     if e.player1_id:
                         ft_shooter = int(e.player1_id)
+                    if "And 1" in ft_type:
+                        ft_and1 += 1
+                        # The and-1's made shot: the last made FG by the same
+                        # shooter earlier in the possession. Gives the shot
+                        # location via the shots table (event id join).
+                        if (
+                            last_made is not None
+                            and e.player1_id
+                            and int(e.player1_id) == last_made
+                            and last_made_event is not None
+                        ):
+                            and1_events.add((int(last_made_event), last_made))
+                    elif ft_type.startswith("3"):
+                        ft_sf3 += 1
+                    else:
+                        ft_sf2 += 1
                 else:
                     excluded_count += 1
             else:
@@ -420,7 +446,10 @@ def possession_sfta_and_finisher(p: Possession):
     else:
         finisher = None
 
-    return sfta, finisher, excluded_count, contamination_count
+    return (
+        sfta, finisher, excluded_count, contamination_count,
+        ft_and1, ft_sf2, ft_sf3, sorted(and1_events),
+    )
 
 
 # Non-shooting foul descriptors that pbpstats' FieldGoal.is_and1 can
@@ -437,13 +466,15 @@ NON_SHOOTING_FOUL_DESCRIPTORS = {
 
 
 # ─── Main pipeline ───────────────────────────────────────────────────────
-def process_game(df: pd.DataFrame, gid: str) -> list[dict]:
+def process_game(df: pd.DataFrame, gid: str) -> tuple[list[dict], list[dict]]:
     loader = V3PossessionLoader(gid, df)
     out = []
+    and1_rows = []
     for p in loader.items:
         if not p.events:
             continue
-        sfta, finisher, excluded, contamination = possession_sfta_and_finisher(p)
+        (sfta, finisher, excluded, contamination,
+         ft_and1, ft_sf2, ft_sf3, and1_events) = possession_sfta_and_finisher(p)
         out.append({
             "game_id": gid,
             "period": p.period,
@@ -456,8 +487,18 @@ def process_game(df: pd.DataFrame, gid: str) -> list[dict]:
             "finisher_player_id": finisher,
             "excluded_ft_count": excluded,
             "contamination_count": contamination,
+            "ft_and1": ft_and1,
+            "ft_sf2": ft_sf2,
+            "ft_sf3": ft_sf3,
         })
-    return out
+        for ev, pid in and1_events:
+            and1_rows.append({
+                "game_id": gid,
+                "event_id": ev,
+                "player_id": pid,
+                "possession_number": p.number,
+            })
+    return out, and1_rows
 
 
 def main():
@@ -471,12 +512,14 @@ def main():
 
     t0 = time.time()
     all_possessions: list[dict] = []
+    all_and1: list[dict] = []
     for i, fp in enumerate(files):
         gid = fp.stem
         try:
             df = pd.read_parquet(fp)
-            possessions = process_game(df, gid)
+            possessions, and1_rows = process_game(df, gid)
             all_possessions.extend(possessions)
+            all_and1.extend(and1_rows)
         except Exception as e:
             print(f"  {gid}: FAILED ({e})")
         if (i + 1) % 500 == 0:
@@ -493,11 +536,25 @@ def main():
     print(f"Mean sfta per possession: {poss_df['sfta'].mean():.4f}")
     print(f"Sum sfta: {poss_df['sfta'].sum():,}")
 
+    bucket_sum = int(
+        poss_df["ft_and1"].sum() + poss_df["ft_sf2"].sum() + poss_df["ft_sf3"].sum()
+    )
+    print(f"FT bucket identity: and1+sf2+sf3 = {bucket_sum:,} "
+          f"vs sum sfta = {int(poss_df['sfta'].sum()):,} "
+          f"({'OK' if bucket_sum == int(poss_df['sfta'].sum()) else 'MISMATCH'})")
+    print(f"and-1 shots located: {len(all_and1):,} "
+          f"of {int(poss_df['ft_and1'].sum()):,} and-1 FTs")
+
     conn = sqlite3.connect(DB_PATH)
     conn.execute("DROP TABLE IF EXISTS possessions")
     poss_df.to_sql("possessions", conn, if_exists="replace", index=False)
     conn.execute("CREATE INDEX idx_possessions_game ON possessions(game_id)")
     conn.execute("CREATE INDEX idx_possessions_finisher ON possessions(finisher_player_id)")
+    and1_df = pd.DataFrame(all_and1)
+    conn.execute("DROP TABLE IF EXISTS and1_shots")
+    and1_df.to_sql("and1_shots", conn, if_exists="replace", index=False)
+    conn.execute("CREATE INDEX idx_and1_game ON and1_shots(game_id, event_id)")
+    conn.execute("CREATE INDEX idx_and1_player ON and1_shots(player_id)")
     conn.commit()
     conn.close()
     print("\nWrote table: possessions")
