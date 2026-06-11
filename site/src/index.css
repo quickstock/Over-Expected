@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-serif: "Source Serif 4 Variable", Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* Ink-on-paper neutrals. All vivid color belongs to the FTAOE encoding. */
+  --color-paper: oklch(0.977 0 0);
+  --color-ink: oklch(0.235 0.006 270);
+  --color-ink-soft: oklch(0.45 0.008 270);
+  --color-ink-faint: oklch(0.58 0.006 270);
+  --color-line: oklch(0.885 0.003 270);
+  --color-line-soft: oklch(0.93 0.002 270);
+  --color-wash: oklch(0.955 0.001 270);
+
+  /* The diverging FTAOE encoding: warm = above league rate, cool = below. */
+  --color-warm: oklch(0.58 0.185 38);
+  --color-cool: oklch(0.52 0.115 252);
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: oklch(0.58 0.185 38 / 0.22);
+}
+
+button {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

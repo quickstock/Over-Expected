@@ -36,3 +36,6 @@ cache/
 
 # Logs
 *.log
+
+# Playwright agent CLI artifacts
+.playwright-cli/
