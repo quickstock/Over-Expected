@@ -295,6 +295,9 @@ metrics = json.loads(
     (Path(__file__).parent / "model_artifacts" / "headline_v4_context_metrics.json")
     .read_text()
 )
+reliability = json.loads(
+    (Path(__file__).parent / "model_artifacts" / "reliability.json").read_text()
+)
 n_poss = pred.shape[0]
 meta = {
     "seasons": sorted(lb["season"].unique().tolist()),
@@ -310,6 +313,12 @@ meta = {
         {"season": f["season"], "liftPct": round(f["lift_pct"], 2)}
         for f in metrics["folds"]
     ],
+    "reliability": {
+        "fullSeasonR": reliability["fullSeasonR"],
+        "yoyMeanR": reliability["yoyMeanR"],
+        "yoyPairs": reliability["yoyPairs"],
+        "paddingK": reliability["paddingK"],
+    },
 }
 
 out = {

@@ -284,6 +284,53 @@ export default function Methodology() {
         </p>
       </div>
 
+      <H2>How stable is it</H2>
+      <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
+        <p>
+          Splitting every qualified player-season into odd and even games
+          and comparing the two halves puts FTAOE/100's full-season
+          reliability at{" "}
+          <span className="font-mono tnum">
+            {meta.reliability.fullSeasonR.toFixed(2)}
+          </span>
+          . Season over season it repeats at{" "}
+          <span className="font-mono tnum">
+            r = {meta.reliability.yoyMeanR.toFixed(2)}
+          </span>{" "}
+          on average across{" "}
+          {seasons.length - 1} consecutive season pairs (
+          {meta.reliability.yoyPairs.map((p, i) => (
+            <span key={p.pair} className="font-mono tnum">
+              {p.r.toFixed(2)}
+              {i < meta.reliability.yoyPairs.length - 1 ? ", " : ""}
+            </span>
+          ))}
+          ), roughly 210 repeat players per pair. It even held across the
+          2021-22 enforcement change: the league's level moved, the ordering
+          of players barely did. Foul-drawing is a skill, not noise.
+        </p>
+        <p>
+          In padding terms, the stat stabilizes after about{" "}
+          <span className="font-mono tnum">{int(meta.reliability.paddingK)}</span>{" "}
+          possessions (the sample size at which half the variance you see is
+          signal). For comparison, three-point percentage is commonly
+          estimated to need 240 or more attempts. At the leaderboard's
+          {" "}{int(meta.qualifyPossessions)}-possession floor, reliability is
+          already about{" "}
+          <span className="font-mono tnum">
+            {(
+              meta.qualifyPossessions /
+              (meta.qualifyPossessions + meta.reliability.paddingK)
+            ).toFixed(2)}
+          </span>
+          ; at 1,000 possessions it is about{" "}
+          <span className="font-mono tnum">
+            {(1000 / (1000 + meta.reliability.paddingK)).toFixed(2)}
+          </span>
+          .
+        </p>
+      </div>
+
       <H2>Style-adjusted FTAOE</H2>
       <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
         <p>

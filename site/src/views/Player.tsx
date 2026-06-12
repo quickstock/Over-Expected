@@ -11,6 +11,8 @@ import GapArc from "../components/charts/GapArc";
 import FormStrip from "../components/charts/FormStrip";
 import CourtZones from "../components/charts/CourtZones";
 import FoulLedger from "../components/player/FoulLedger";
+import PercentileSliders from "../components/player/PercentileSliders";
+import CareerStrip from "../components/player/CareerStrip";
 
 const FORM_WINDOWS = ["5", "10", "15", "20"];
 
@@ -81,6 +83,32 @@ export default function Player() {
       .filter((r): r is NonNullable<typeof r> => r !== undefined);
   }, [data, id]);
 
+  // Career pooling over qualified seasons (client-side; all rows ship in
+  // the core JSON). Pool for the career percentile: >= 1000 career poss.
+  const career = useMemo(() => {
+    const byId = new Map<
+      number,
+      { poss: number; ftaoe: number; fta: number; xfta: number; n: number }
+    >();
+    for (const r of data.leaderboard) {
+      if (r.pct === null) continue;
+      const c =
+        byId.get(r.id) ?? { poss: 0, ftaoe: 0, fta: 0, xfta: 0, n: 0 };
+      c.poss += r.poss;
+      c.ftaoe += r.ftaoe;
+      c.fta += r.fta;
+      c.xfta += r.xfta;
+      c.n += 1;
+      byId.set(r.id, c);
+    }
+    const pool: number[] = [];
+    for (const c of byId.values()) {
+      if (c.poss >= 1000) pool.push((c.ftaoe / c.poss) * 100);
+    }
+    pool.sort((a, b) => a - b);
+    return { byId, pool };
+  }, [data.leaderboard]);
+
   const seasons = rows.map((r) => r.season);
   const requested = params.get("season");
   const season =
@@ -98,6 +126,15 @@ export default function Player() {
   const detail =
     chunk.status === "ready" ? chunk.chunk[String(row.id)] : undefined;
   const fouls = detail?.fouls;
+
+  const myCareer = career.byId.get(Number(id));
+  const careerPer100 = myCareer ? (myCareer.ftaoe / myCareer.poss) * 100 : null;
+  const careerPct =
+    myCareer && myCareer.poss >= 1000 && career.pool.length > 0 && careerPer100 !== null
+      ? (career.pool.filter((v) => v <= careerPer100).length /
+          career.pool.length) *
+        100
+      : null;
 
   const setSeason = (s: string) => {
     const next = new URLSearchParams(params);
@@ -192,30 +229,47 @@ export default function Player() {
         />
       </section>
 
-      {/* style-adjusted second lens */}
-      {row.sper100 !== null && (
-        <section className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line-soft pb-6">
-          <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
-            Style-adjusted
-          </span>
-          <Delta per100={row.sper100} className="text-2xl" />
-          <span className="font-mono tnum text-sm text-ink-soft">
-            per 100{row.spct !== null ? ` · ${ordinal(Math.floor(row.spct))} %ile` : ""}
-          </span>
-          <span className="basis-full text-sm leading-relaxed text-ink-soft">
-            Above what his attack profile (drives, paint and post touches)
-            predicts: a different question than the headline number, which
-            compares to a league-average player.{" "}
-            <Link
-              to="/methodology"
-              className="underline underline-offset-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              How it differs
-            </Link>
-            .
-          </span>
-        </section>
-      )}
+      {/* where he ranks */}
+      <section className="mt-6 border-b border-line-soft pb-4">
+        <h2 className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
+          Where he ranks
+        </h2>
+        <PercentileSliders
+          className="mt-1"
+          rows={[
+            {
+              label: `FTAOE/100, ${season}`,
+              per100: row.per100,
+              pct: row.pct,
+            },
+            {
+              label: "Style-adjusted",
+              per100: row.sper100 ?? 0,
+              pct: row.sper100 !== null ? row.spct : null,
+              note: (
+                <>
+                  Above what his attack profile (drives, paint and post
+                  touches) predicts; a different question than the headline
+                  number.{" "}
+                  <Link
+                    to="/methodology"
+                    className="underline underline-offset-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                  >
+                    How it differs
+                  </Link>
+                  .
+                </>
+              ),
+            },
+            {
+              label: `Career, ${myCareer?.n ?? 0} seasons`,
+              per100: careerPer100 ?? 0,
+              pct: careerPct,
+              note: "Career rank among players with at least 1,000 possessions across qualified seasons.",
+            },
+          ]}
+        />
+      </section>
 
       {/* the gap */}
       <section className="mt-14">
@@ -323,6 +377,28 @@ export default function Player() {
             misses three. The column sums to the season total exactly.
           </p>
           <FoulLedger fouls={fouls} fta={row.fta} className="mt-6" />
+        </section>
+      )}
+
+      {/* career */}
+      {rows.length > 1 && myCareer && careerPer100 !== null && (
+        <section className="mt-14">
+          <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+            Career
+          </h2>
+          <p className="mt-1.5 text-sm text-ink-soft">
+            {int(myCareer.fta)} FTA vs {myCareer.xfta.toFixed(1)} expected
+            over {int(myCareer.poss)} possessions across {int(myCareer.n)}{" "}
+            qualified seasons:{" "}
+            <Delta per100={careerPer100} className="text-sm" /> per 100.
+            Tap a season.
+          </p>
+          <CareerStrip
+            rows={rows}
+            activeSeason={season}
+            onSelect={setSeason}
+            className="mt-4 max-w-2xl"
+          />
         </section>
       )}
 

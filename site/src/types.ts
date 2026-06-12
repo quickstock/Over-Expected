@@ -69,6 +69,12 @@ export interface SiteData {
     leagueRateBySeason: Record<string, number>;
     modelLiftPct: number;
     foldLifts: { season: string; liftPct: number }[];
+    reliability: {
+      fullSeasonR: number;
+      yoyMeanR: number;
+      yoyPairs: { pair: string; r: number; n: number }[];
+      paddingK: number;
+    };
   };
   leaderboard: LeaderboardRow[];
   distributions: Record<string, number[]>;
