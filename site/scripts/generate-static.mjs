@@ -21,7 +21,10 @@ const ROOT = join(__dirname, "..");
 const DIST = join(ROOT, "dist");
 
 const baseArg = process.argv.indexOf("--base");
-const BASE = (baseArg > -1 ? process.argv[baseArg + 1] : "https://xfta.vercel.app").replace(/\/$/, "");
+const envBase = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "https://ftaoe.vercel.app";
+const BASE = (baseArg > -1 ? process.argv[baseArg + 1] : envBase).replace(/\/$/, "");
 
 const data = JSON.parse(readFileSync(join(ROOT, "public", "data.json"), "utf8"));
 const template = readFileSync(join(DIST, "index.html"), "utf8");
@@ -281,4 +284,21 @@ shell({
   image: "site.png",
 });
 
-console.log(`done: ${n} player cards + site card, ${n + 3} HTML shells (base ${BASE})`);
+// sitemap + robots for the deployed domain
+const urls = [
+  `${BASE}/`, `${BASE}/leaderboard`, `${BASE}/methodology`,
+  `${BASE}/data`, `${BASE}/crackdown`, `${BASE}/compare`,
+  ...[...latestByPlayer.keys()].sort((a, b) => a - b).map((id) => `${BASE}/player/${id}`),
+];
+writeFileSync(
+  join(DIST, "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+    .map((u) => `  <url><loc>${u}</loc></url>`)
+    .join("\n")}\n</urlset>\n`,
+);
+writeFileSync(
+  join(DIST, "robots.txt"),
+  `User-agent: *\nAllow: /\n\nSitemap: ${BASE}/sitemap.xml\n`,
+);
+
+console.log(`done: ${n} player cards + site card, ${n + 4} HTML shells, sitemap ${urls.length} urls (base ${BASE})`);
