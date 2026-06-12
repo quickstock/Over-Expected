@@ -34,3 +34,8 @@ export function lastName(full: string): string {
   while (i > 0 && NAME_SUFFIXES.has(parts[i].toLowerCase())) i--;
   return parts[i];
 }
+
+/** Accent-insensitive lowercase key: "Jokić" -> "jokic". */
+export function searchKey(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}

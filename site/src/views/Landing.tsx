@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useData, usePlayerChunk } from "../data";
 import type { LeaderboardRow } from "../types";
-import { int, lastName, ordinal } from "../lib/format";
+import { int, lastName, ordinal, searchKey } from "../lib/format";
 import { Delta } from "../components/Delta";
 import { useTitle } from "../lib/useTitle";
 import SegmentedControl from "../components/SegmentedControl";
@@ -78,10 +78,10 @@ export default function Landing() {
   );
 
   const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchKey(query.trim());
     if (q.length < 2) return [];
     return seasonPool
-      .filter((r) => r.name.toLowerCase().includes(q))
+      .filter((r) => searchKey(r.name).includes(q))
       .sort((a, b) => b.poss - a.poss)
       .slice(0, 6);
   }, [query, seasonPool]);

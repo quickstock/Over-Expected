@@ -5,7 +5,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "text-ink underline underline-offset-4" : "text-ink-soft hover:text-ink"
   }`;
 
-export default function Nav() {
+export default function Nav({ onSearch }: { onSearch: () => void }) {
   return (
     <header className="border-b border-line">
       <div className="mx-auto flex max-w-6xl items-baseline justify-between px-5 py-4 sm:px-8">
@@ -19,6 +19,16 @@ export default function Nav() {
           </span>
         </Link>
         <nav className="flex items-baseline gap-5 sm:gap-7">
+          <button
+            type="button"
+            onClick={onSearch}
+            className="font-display text-sm font-medium tracking-wide text-ink-soft transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            Search
+            <kbd className="ml-1.5 hidden rounded border border-line px-1 font-mono text-[10px] text-ink-faint sm:inline">
+              ⌘K
+            </kbd>
+          </button>
           <NavLink to="/leaderboard" className={linkClass}>
             Leaderboard
           </NavLink>

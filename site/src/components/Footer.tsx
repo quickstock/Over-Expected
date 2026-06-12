@@ -14,7 +14,10 @@ export default function Footer() {
         </p>
         <p className="mt-4 text-xs text-ink-faint">
           Shooting fouls only · {seasons[0]} to {seasons[seasons.length - 1]} ·
-          built from possession-level play-by-play
+          built from possession-level play-by-play ·{" "}
+          <Link to="/data" className="underline underline-offset-2 hover:text-ink">
+            get the data
+          </Link>
         </p>
       </div>
     </footer>

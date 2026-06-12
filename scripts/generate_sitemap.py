@@ -18,7 +18,7 @@ data = json.loads((ROOT / "data.json").read_text())
 qualify = data["meta"]["qualifyPossessions"]
 player_ids = sorted({r["id"] for r in data["leaderboard"] if r["poss"] >= qualify})
 
-urls = [f"{base}/", f"{base}/leaderboard", f"{base}/methodology"] + [
+urls = [f"{base}/", f"{base}/leaderboard", f"{base}/methodology", f"{base}/data"] + [
     f"{base}/player/{pid}" for pid in player_ids
 ]
 body = "\n".join(
