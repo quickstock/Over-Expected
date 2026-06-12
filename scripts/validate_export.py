@@ -109,6 +109,10 @@ for season in data["meta"]["seasons"]:
         r["pct"] for r in data["leaderboard"]
         if r["season"] == season and r["poss"] >= qual
     ]
+    if not pcts:
+        # Thin in-progress season (early weeks): nobody qualified yet.
+        lines.append(f"{season}: thin (0 qualified), skipped")
+        continue
     if any(p is None for p in pcts):
         ok4 = False
         lines.append(f"{season}: null pct inside qualified pool")
@@ -201,6 +205,9 @@ lines = []
 for season in data["meta"]["seasons"]:
     rows_s = [r for r in data["leaderboard"] if r["season"] == season]
     poss = sum(r["poss"] for r in rows_s)
+    if poss == 0:
+        lines.append(f"{season}: thin, skipped")
+        continue
     mean_head = sum(r["ftaoe"] for r in rows_s) / poss * 100
     cov = [r for r in rows_s if r.get("sper100") is not None]
     mean_style = (
@@ -220,7 +227,7 @@ report(
 ok5d = True
 lines = []
 for season, rows in data.get("teams", {}).items():
-    if len(rows) != 30:
+    if season != data["meta"]["seasons"][-1] and len(rows) != 30:
         ok5d = False
         lines.append(f"{season}: {len(rows)} teams")
         continue
@@ -230,7 +237,8 @@ for season, rows in data.get("teams", {}).items():
         ok5d = False
     lines.append(f"{season}: drawn {wd:+.3f} conceded {wc:+.3f}")
 nrefs = {s2: len(v) for s2, v in data.get("referees", {}).items()}
-if any(v < 30 for v in nrefs.values()):
+complete = [s2 for s2 in nrefs if s2 != data["meta"]["seasons"][-1]]
+if any(nrefs[s2] < 30 for s2 in complete):
     ok5d = False
 report(
     "5d. Teams: 30/season, poss-weighted league mean ~0 both sides; refs >= 30/season",

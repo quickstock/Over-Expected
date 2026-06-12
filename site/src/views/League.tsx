@@ -173,7 +173,7 @@ export default function League() {
   const data = useData();
   useTitle("League context · FTAOE");
   const seasons = data.meta.seasons;
-  const [season, setSeason] = useState(seasons[seasons.length - 1]);
+  const [season, setSeason] = useState(data.meta.defaultSeason);
   const [sort, setSort] = useState<"drawn" | "conceded">("drawn");
 
   const teams = useMemo(

@@ -49,7 +49,7 @@ export default function Landing() {
   const data = useData();
   useTitle("FTAOE: Free Throw Attempts Over Expected");
   const seasons = data.meta.seasons;
-  const latest = seasons[seasons.length - 1];
+  const latest = data.meta.defaultSeason;
   const qualify = data.meta.qualifyPossessions;
 
   const [swarmSeason, setSwarmSeason] = useState(latest);
@@ -107,8 +107,8 @@ export default function Landing() {
       {/* hero: the statistic, not a player */}
       <section className="pt-14 sm:pt-20">
         <p className="font-mono tnum text-xs text-ink-faint">
-          FTAOE · {seasonShort(seasons[0])} to {seasonShort(latest)} ·
-          shooting fouls only
+          FTAOE · {seasonShort(seasons[0])} to{" "}
+          {seasonShort(seasons[seasons.length - 1])} · shooting fouls only
         </p>
         <h1 className="mt-4 font-display text-5xl font-bold leading-[1.02] tracking-tight text-ink sm:text-7xl">
           The free-throw gap.

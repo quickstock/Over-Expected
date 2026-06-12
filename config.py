@@ -3,18 +3,36 @@
 Feature *selection* happens at model time. The tables are a superset.
 """
 
-# Seasons to pull (regular season only).
-# 2020-21 is the earliest included: 2019-20 was interrupted/bubble-distorted.
-SEASONS = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+# Seasons (regular season only), derived from the calendar so the
+# pipeline rolls forward on its own each October. 2020-21 is the fixed
+# earliest season (2019-20 was interrupted/bubble-distorted); the list
+# always ends at the season implied by today's date, so historic
+# seasons are never dropped.
+import datetime as _dt
+
+FIRST_SEASON_START = 2020
+
+
+def _season_str(start_year: int) -> str:
+    return f"{start_year}-{str(start_year + 1)[-2:]}"
+
+
+def _current_season_start(today: "_dt.date | None" = None) -> int:
+    d = today or _dt.date.today()
+    # NBA seasons start in October; July-September still belongs to the
+    # season that just finished.
+    return d.year if d.month >= 10 else d.year - 1
+
+
+SEASONS = [
+    _season_str(y)
+    for y in range(FIRST_SEASON_START, _current_season_start() + 1)
+]
 
 # Prior-season mapping for player-rate leakage prevention
 PRIOR_SEASON = {
-    "2020-21": "2019-20",
-    "2021-22": "2020-21",
-    "2022-23": "2021-22",
-    "2023-24": "2022-23",
-    "2024-25": "2023-24",
-    "2025-26": "2024-25",
+    _season_str(y): _season_str(y - 1)
+    for y in range(FIRST_SEASON_START, _current_season_start() + 1)
 }
 
 # Context-only model features (superset — headline model uses a subset)

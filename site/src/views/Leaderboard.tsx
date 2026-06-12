@@ -98,7 +98,7 @@ export default function Leaderboard() {
   useTitle("Leaderboard \u00b7 FTAOE");
 
   const seasons = data.meta.seasons;
-  const latest = seasons[seasons.length - 1];
+  const latest = data.meta.defaultSeason;
   const qualify = data.meta.qualifyPossessions;
 
   const season = seasons.includes(params.get("season") ?? "")

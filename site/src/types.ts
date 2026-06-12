@@ -63,6 +63,8 @@ export interface CalibrationBin {
 export interface SiteData {
   meta: {
     seasons: string[];
+    /** Latest season with >= 50 qualified players; the UI's default. */
+    defaultSeason: string;
     qualifyPossessions: number;
     nPossessions: number;
     leagueRatePer100: number;

@@ -18,6 +18,24 @@ export default function SegmentedControl({
   ariaLabel: string;
   className?: string;
 }) {
+  // Past seven options (decades of seasons), chips stop scaling:
+  // degrade to a native select with the same API.
+  if (options.length > 7) {
+    return (
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`rounded-md border border-line bg-paper px-3 py-1.5 font-display text-[13px] font-medium text-ink focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ink ${className}`}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
   return (
     <div
       role="group"

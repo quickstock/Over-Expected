@@ -39,3 +39,4 @@ cache/
 
 # Playwright agent CLI artifacts
 .playwright-cli/
+logs/
