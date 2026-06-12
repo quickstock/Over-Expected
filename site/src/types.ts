@@ -80,4 +80,14 @@ export interface SiteData {
   distributions: Record<string, number[]>;
   leagueZones: Record<string, { zone: string; area: string; share: number }[]>;
   calibration: CalibrationBin[];
+  /** Per season: officials with >= 20 games, sorted by diff desc. */
+  referees: Record<
+    string,
+    { name: string; games: number; per100: number; diff: number }[]
+  >;
+  /** Per season: 30 teams, FTAOE/100 drawn (offense) and conceded (defense). */
+  teams: Record<
+    string,
+    { team: string; drawn: number; conceded: number; poss: number }[]
+  >;
 }

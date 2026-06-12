@@ -216,6 +216,28 @@ report(
     " | ".join(lines),
 )
 
+# ---------------------------------------------------------------- check 5d
+ok5d = True
+lines = []
+for season, rows in data.get("teams", {}).items():
+    if len(rows) != 30:
+        ok5d = False
+        lines.append(f"{season}: {len(rows)} teams")
+        continue
+    wd = sum(r["drawn"] * r["poss"] for r in rows) / sum(r["poss"] for r in rows)
+    wc = sum(r["conceded"] * r["poss"] for r in rows) / sum(r["poss"] for r in rows)
+    if abs(wd) > 0.25 or abs(wc) > 0.25:
+        ok5d = False
+    lines.append(f"{season}: drawn {wd:+.3f} conceded {wc:+.3f}")
+nrefs = {s2: len(v) for s2, v in data.get("referees", {}).items()}
+if any(v < 30 for v in nrefs.values()):
+    ok5d = False
+report(
+    "5d. Teams: 30/season, poss-weighted league mean ~0 both sides; refs >= 30/season",
+    ok5d,
+    " | ".join(lines) + f" | refs per season: {nrefs}",
+)
+
 # ---------------------------------------------------------------- check 6
 size_mb = JSON_PATH.stat().st_size / 1e6
 report(

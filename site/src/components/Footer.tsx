@@ -17,7 +17,22 @@ export default function Footer() {
           built from possession-level play-by-play ·{" "}
           <Link to="/data" className="underline underline-offset-2 hover:text-ink">
             get the data
+          </Link>{" "}
+          ·{" "}
+          <Link to="/feedback" className="underline underline-offset-2 hover:text-ink">
+            send feedback
           </Link>
+        </p>
+        <p className="mt-2 text-xs text-ink-faint">
+          Built by Kevin Krajnc ·{" "}
+          <a
+            href="https://x.com/kevin.krjn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-ink"
+          >
+            @kevin.krjn
+          </a>
         </p>
       </div>
     </footer>

@@ -19,22 +19,36 @@ export interface SliderRow {
 function Row({ label, per100, pct, note }: SliderRow) {
   if (pct === null) return null;
   const p = Math.max(0, Math.min(100, pct));
+  const fill: React.CSSProperties =
+    p >= 50
+      ? { left: "50%", width: `${p - 50}%` }
+      : { left: `${p}%`, width: `${50 - p}%` };
   return (
-    <div className="py-3">
+    <div className="py-3.5">
       <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_4.5rem] items-center gap-x-4 sm:grid-cols-[10rem_minmax(0,1fr)_5rem]">
-        <span className="font-display text-[12px] font-medium leading-tight text-ink-soft sm:text-[13px]">
+        <span className="font-display text-[13px] font-medium leading-tight text-ink">
           {label}
         </span>
         <div
-          className="relative h-1.5 rounded-full bg-wash"
+          className="relative h-2 rounded-full bg-wash"
           role="img"
           aria-label={`${label}: ${ordinal(Math.floor(p))} percentile, ${signed(per100, 1)} per 100`}
         >
+          {/* fill from the median to the rank */}
+          <span
+            className="absolute top-0 h-full rounded-full transition-[width,left] duration-700 starting:w-0 starting:left-1/2"
+            style={{
+              ...fill,
+              background: divergingColor(per100),
+              opacity: 0.25,
+              transitionTimingFunction: "var(--ease-out-strong)",
+            }}
+          />
           {/* median tick */}
-          <span className="absolute left-1/2 top-1/2 h-3 w-px -translate-y-1/2 bg-line" />
+          <span className="absolute left-1/2 top-1/2 h-3.5 w-px -translate-y-1/2 bg-line" />
           {/* rank dot, slides to position on mount */}
           <span
-            className="absolute top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-[left] duration-700 starting:left-1/2"
+            className="absolute top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full ring-2 ring-paper transition-[left] duration-700 starting:left-1/2"
             style={{
               left: `${p}%`,
               background: divergingColor(per100),
@@ -47,15 +61,14 @@ function Row({ label, per100, pct, note }: SliderRow) {
           </span>
         </div>
         <span
-          className="font-mono tnum text-right text-sm"
+          className="font-mono tnum text-right text-base"
           style={{ color: divergingText(per100) }}
         >
           {signed(per100, 1)}
         </span>
       </div>
       {note && (
-        <p className="mt-1.5 text-xs leading-relaxed text-ink-faint sm:ml-0">
-          {note}
+        <p className="mt-2 text-xs leading-relaxed text-ink-faint sm:grid sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-x-4"><span className="hidden sm:block" /><span>{note}</span>
         </p>
       )}
     </div>

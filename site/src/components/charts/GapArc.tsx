@@ -134,7 +134,7 @@ export default function GapArc({
   const actualUp = yActualLabel <= yExpectedLabel;
 
   const hovered = hover !== null ? arc[hover] : null;
-  const ticks = n > 20 ? [1, ...[20, 40, 60, 80].filter((t) => t < n), n] : [1, n];
+  const ticks = n > 20 ? [1, ...[20, 40, 60, 80].filter((t) => t < n - 2), n] : [1, n];
 
   // Reveal: gap + expected sweep left-to-right under a clip; the actual
   // line draws via normalized dash; labels land last.
@@ -224,7 +224,11 @@ export default function GapArc({
             </text>
             <text
               x={x(n) + 7}
-              y={(yActualLabel + yExpectedLabel) / 2 + (tooClose ? 34 : 4) + 14}
+              y={
+                Math.abs(yActualLabel - yExpectedLabel) > 56
+                  ? (yActualLabel + yExpectedLabel) / 2 + 4
+                  : Math.max(yActualLabel, yExpectedLabel) + 26
+              }
               fill={divergingText(finalDiff)}
               fontWeight={700}
               fontSize={12.5}

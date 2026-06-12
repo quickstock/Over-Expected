@@ -108,11 +108,11 @@ function DuelRow({
         <p className="mb-1.5 text-center font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
           {label}
         </p>
-        <div className="relative h-1.5 rounded-full bg-wash">
-          <span className="absolute left-1/2 top-1/2 h-3 w-px -translate-y-1/2 bg-line" />
+        <div className="relative h-2 rounded-full bg-wash">
+          <span className="absolute left-1/2 top-1/2 h-3.5 w-px -translate-y-1/2 bg-line" />
           {aPct !== null && aVal !== null && (
             <span
-              className="absolute top-1/2 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-[left] duration-700 starting:left-1/2"
+              className="absolute top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full ring-2 ring-paper transition-[left] duration-700 starting:left-1/2"
               style={{
                 left: `${Math.min(100, Math.max(0, aPct))}%`,
                 background: divergingColor(aVal),
@@ -120,23 +120,24 @@ function DuelRow({
               }}
               title={`${a}: ${ordinal(Math.floor(aPct))} %ile`}
             >
-              <span className="font-mono text-[9px] font-bold leading-none text-paper">
+              <span className="font-mono text-[10px] font-bold leading-none text-paper">
                 {a.slice(0, 1)}
               </span>
             </span>
           )}
           {bPct !== null && bVal !== null && (
             <span
-              className="absolute top-1/2 grid h-5 w-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-paper transition-[left] duration-700 starting:left-1/2"
+              className="absolute top-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full ring-2 ring-paper transition-[left] duration-700 starting:left-1/2"
               style={{
                 left: `${Math.min(100, Math.max(0, bPct))}%`,
                 background: divergingColor(bVal),
                 transitionTimingFunction: "var(--ease-out-strong)",
-                marginTop: aPct !== null && Math.abs(aPct - bPct) < 6 ? 10 : 0,
+                marginTop:
+                  aPct !== null && Math.abs(aPct - bPct) < 7 ? 13 : 0,
               }}
               title={`${b}: ${ordinal(Math.floor(bPct))} %ile`}
             >
-              <span className="font-mono text-[9px] font-bold leading-none text-paper">
+              <span className="font-mono text-[10px] font-bold leading-none text-paper">
                 {b.slice(0, 1)}
               </span>
             </span>
@@ -214,13 +215,18 @@ export default function Compare() {
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2">
         {a ? (
-          <div className="flex items-baseline justify-between gap-3 border-b border-line pb-3">
-            <Link
-              to={`/player/${a.id}?season=${encodeURIComponent(a.season)}`}
-              className="min-w-0 truncate font-display text-xl font-semibold text-ink underline-offset-4 hover:underline"
-            >
-              {a.name}
-            </Link>
+          <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink font-mono text-[10px] font-bold text-paper">
+                {aN.slice(0, 1)}
+              </span>
+              <Link
+                to={`/player/${a.id}?season=${encodeURIComponent(a.season)}`}
+                className="min-w-0 truncate font-display text-xl font-semibold text-ink underline-offset-4 hover:underline"
+              >
+                {a.name}
+              </Link>
+            </span>
             <button
               type="button"
               onClick={() => update({ a: "" })}
@@ -237,13 +243,18 @@ export default function Compare() {
           />
         )}
         {b ? (
-          <div className="flex items-baseline justify-between gap-3 border-b border-line pb-3">
-            <Link
-              to={`/player/${b.id}?season=${encodeURIComponent(b.season)}`}
-              className="min-w-0 truncate font-display text-xl font-semibold text-ink underline-offset-4 hover:underline"
-            >
-              {b.name}
-            </Link>
+          <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink font-mono text-[10px] font-bold text-paper">
+                {bN.slice(0, 1)}
+              </span>
+              <Link
+                to={`/player/${b.id}?season=${encodeURIComponent(b.season)}`}
+                className="min-w-0 truncate font-display text-xl font-semibold text-ink underline-offset-4 hover:underline"
+              >
+                {b.name}
+              </Link>
+            </span>
             <button
               type="button"
               onClick={() => update({ b: "" })}

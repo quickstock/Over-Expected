@@ -32,6 +32,9 @@ export default function Nav({ onSearch }: { onSearch: () => void }) {
           <NavLink to="/leaderboard" className={linkClass}>
             Leaderboard
           </NavLink>
+          <NavLink to="/league" className={linkClass}>
+            League
+          </NavLink>
           <NavLink to="/methodology" className={linkClass}>
             Methodology
           </NavLink>

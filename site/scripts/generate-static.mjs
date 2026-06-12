@@ -278,6 +278,18 @@ shell({
   image: "site.png",
 });
 shell({
+  title: "League context · FTAOE",
+  description: "Team styles and officiating assignments, measured with the FTAOE baseline: who draws, who concedes, and how officials' games differ.",
+  path: "/league",
+  image: "site.png",
+});
+shell({
+  title: "Feedback · FTAOE",
+  description: "Spotted something off, want a feature, or disagree with the method? Send feedback.",
+  path: "/feedback",
+  image: "site.png",
+});
+shell({
   title: "Data · FTAOE",
   description: "Download the FTAOE dataset: leaderboard, per-game series, shot zones and foul ledgers for six NBA seasons, as static JSON.",
   path: "/data",
@@ -288,6 +300,7 @@ shell({
 const urls = [
   `${BASE}/`, `${BASE}/leaderboard`, `${BASE}/methodology`,
   `${BASE}/data`, `${BASE}/crackdown`, `${BASE}/compare`,
+  `${BASE}/league`, `${BASE}/feedback`,
   ...[...latestByPlayer.keys()].sort((a, b) => a - b).map((id) => `${BASE}/player/${id}`),
 ];
 writeFileSync(
