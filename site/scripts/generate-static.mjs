@@ -263,6 +263,12 @@ shell({
   image: "site.png",
 });
 shell({
+  title: "The crackdown, measured · FTAOE",
+  description: "The NBA's 2021-22 memo on non-basketball moves barely moved the league's foul rate. It surgically repriced a handful of players. Six seasons of FTAOE, measured.",
+  path: "/crackdown",
+  image: "site.png",
+});
+shell({
   title: "Data · FTAOE",
   description: "Download the FTAOE dataset: leaderboard, per-game series, shot zones and foul ledgers for six NBA seasons, as static JSON.",
   path: "/data",

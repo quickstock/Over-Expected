@@ -211,6 +211,12 @@ export default function Landing() {
           >
             How it's measured →
           </Link>
+          <Link
+            to="/crackdown"
+            className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            The 2021-22 crackdown, measured →
+          </Link>
         </div>
       </section>
 

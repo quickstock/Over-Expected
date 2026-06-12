@@ -8,6 +8,7 @@ import Leaderboard from "./views/Leaderboard";
 import Player from "./views/Player";
 import Methodology from "./views/Methodology";
 import OpenData from "./views/OpenData";
+import Story from "./views/Story";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/player/:id" element={<Player />} />
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/data" element={<OpenData />} />
+          <Route path="/crackdown" element={<Story />} />
           <Route path="*" element={<Landing />} />
         </Routes>
       </main>
