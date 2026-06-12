@@ -9,6 +9,7 @@ import Player from "./views/Player";
 import Methodology from "./views/Methodology";
 import OpenData from "./views/OpenData";
 import Story from "./views/Story";
+import Compare from "./views/Compare";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/data" element={<OpenData />} />
           <Route path="/crackdown" element={<Story />} />
+          <Route path="/compare" element={<Compare />} />
           <Route path="*" element={<Landing />} />
         </Routes>
       </main>

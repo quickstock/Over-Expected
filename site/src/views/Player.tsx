@@ -409,6 +409,12 @@ export default function Player() {
         >
           See everyone →
         </Link>
+        <Link
+          to={`/compare?a=${row.id}&season=${encodeURIComponent(season)}`}
+          className="ml-6 font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          Compare him →
+        </Link>
       </p>
     </div>
   );

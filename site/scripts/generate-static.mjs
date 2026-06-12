@@ -269,6 +269,12 @@ shell({
   image: "site.png",
 });
 shell({
+  title: "Compare · FTAOE",
+  description: "Two NBA players, same season, same baseline: FTAOE per 100, style-adjusted, and the cumulative gap, side by side.",
+  path: "/compare",
+  image: "site.png",
+});
+shell({
   title: "Data · FTAOE",
   description: "Download the FTAOE dataset: leaderboard, per-game series, shot zones and foul ledgers for six NBA seasons, as static JSON.",
   path: "/data",
