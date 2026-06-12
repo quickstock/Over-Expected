@@ -28,6 +28,8 @@ echo "current season: $SEASON"
 notify_fail() {
   curl -s -X POST "https://formsubmit.co/ajax/kevinkrajnc@gmail.com" \
     -H "Content-Type: application/json" \
+    -H "Origin: https://ftaoe.vercel.app" \
+    -H "Referer: https://ftaoe.vercel.app/" \
     -d "{\"_subject\":\"FTAOE weekly update FAILED\",\"message\":\"Step failed: $1 (season $SEASON, $(date '+%Y-%m-%d %H:%M')). The site was NOT redeployed; it keeps serving the last good build. Check logs/weekly.log on $(hostname).\"}" \
     > /dev/null || true
 }
