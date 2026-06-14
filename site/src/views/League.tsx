@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useData } from "../data";
 import { useTitle } from "../lib/useTitle";
 import { divergingText } from "../lib/color";
@@ -17,9 +17,10 @@ function RefStrip({
   refs,
   height = 190,
 }: {
-  refs: { name: string; games: number; per100: number; diff: number }[];
+  refs: { id: number; name: string; games: number; per100: number; diff: number }[];
   height?: number;
 }) {
+  const navigate = useNavigate();
   const [wrapRef, width] = useMeasure<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
 
@@ -131,7 +132,10 @@ function RefStrip({
               style={{ transition: "r 120ms ease" }}
               onPointerEnter={() => setHover(i)}
               onPointerLeave={() => setHover(null)}
-            />
+              onClick={() => navigate(`/referee/${refs[i].id}`)}
+            >
+              <title>{`${refs[i].name} — open profile`}</title>
+            </circle>
           ))}
           {dots
             .filter(({ i }) => extremes.has(refs[i].name))
@@ -280,7 +284,14 @@ export default function League() {
         <p className="mt-1.5 max-w-prose text-sm text-ink-soft">
           Each dot is one official ({season}, minimum 20 games): the
           shooting-foul rate in games they worked, against the season's
-          league rate.
+          league rate. Tap one for the full profile, or see{" "}
+          <Link
+            to={`/referees?season=${encodeURIComponent(season)}`}
+            className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
+          >
+            every official
+          </Link>
+          .
         </p>
         <RefStrip refs={refs} />
         <p className="mt-3 max-w-prose text-xs leading-relaxed text-ink-faint">

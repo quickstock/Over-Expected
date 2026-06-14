@@ -290,6 +290,196 @@ calibration = [
     for r in cal.itertuples()
 ]
 
+# ------------------------------------------------------- referees + teams
+# Per-official rates (descriptive, league-level: each official's games see
+# X shooting-foul FTA per 100 possessions). The model already adjusts for
+# crew tendency; these tables just show it. Two products:
+#   referees   -> per-season index strip (name, games, rate vs league)
+#   refProfiles-> per-official profile: headline + how the whistle moves by
+#                 quarter and by game script (blowout vs close).
+QUALIFY_REF_GAMES = 20
+QUARTER_ORDER = ["Q1", "Q2", "Q3", "Q4", "OT"]
+SCRIPT_ORDER = ["close", "mid", "blowout"]
+
+# Final game script from the last *nonzero* running margin: score_margin is
+# only stamped on scoring events (0 elsewhere), so 0 is missing, not tied.
+# close <= 5, mid 6-12, blowout 13+. Every game classifies.
+ref_base = pd.read_sql(
+    """WITH ls AS (
+           SELECT game_id, ABS(score_margin) AS m,
+                  ROW_NUMBER() OVER (
+                      PARTITION BY game_id
+                      ORDER BY period DESC, seconds_remaining_in_period ASC
+                  ) AS rn
+           FROM shots WHERE score_margin != 0
+       ),
+       fm AS (
+           SELECT game_id,
+                  CASE WHEN m <= 5 THEN 'close'
+                       WHEN m <= 12 THEN 'mid'
+                       ELSE 'blowout' END AS bucket
+           FROM ls WHERE rn = 1
+       )
+       SELECT p.game_id, p.period, p.sfta, g.season, fm.bucket,
+              m.ref1_id, m.ref1_name, m.ref2_id, m.ref2_name,
+              m.ref3_id, m.ref3_name
+       FROM possessions p
+       JOIN games g ON g.GAME_ID = p.game_id
+       JOIN game_meta m ON m.game_id = p.game_id
+       JOIN fm ON fm.game_id = p.game_id""",
+    conn,
+)
+ref_base["q"] = np.where(
+    ref_base["period"] <= 4,
+    "Q" + ref_base["period"].astype(int).astype(str),
+    "OT",
+)
+
+# League baselines over all possessions (per 100), matching the index strip.
+lg_season = ref_base.groupby("season")["sfta"].mean() * 100
+lg_quarter = ref_base.groupby(["season", "q"])["sfta"].mean() * 100
+lg_script = ref_base.groupby(["season", "bucket"])["sfta"].mean() * 100
+
+# Melt the three official slots to one row per (possession, official).
+ref_parts = []
+for n in (1, 2, 3):
+    sub = ref_base[["game_id", "season", "q", "bucket", "sfta"]].copy()
+    sub["ref_id"] = ref_base[f"ref{n}_id"]
+    sub["ref_name"] = ref_base[f"ref{n}_name"]
+    ref_parts.append(sub[sub["ref_id"].notna()])
+refl = pd.concat(ref_parts, ignore_index=True)
+refl["ref_id"] = refl["ref_id"].astype(int)
+ref_name = refl.groupby("ref_id")["ref_name"].agg(lambda s: s.mode().iat[0])
+
+head = (
+    refl.groupby(["ref_id", "season"])
+    .agg(games=("game_id", "nunique"), poss=("sfta", "size"), fta=("sfta", "sum"))
+    .reset_index()
+)
+head["per100"] = head["fta"] / head["poss"] * 100
+qg = (
+    refl.groupby(["ref_id", "season", "q"])
+    .agg(poss=("sfta", "size"), fta=("sfta", "sum")).reset_index()
+)
+qg["per100"] = qg["fta"] / qg["poss"] * 100
+sg = (
+    refl.groupby(["ref_id", "season", "bucket"])
+    .agg(games=("game_id", "nunique"), poss=("sfta", "size"), fta=("sfta", "sum"))
+    .reset_index()
+)
+sg["per100"] = sg["fta"] / sg["poss"] * 100
+
+# Per-season index strip: officials with >= 20 games, sorted by rate vs league.
+referees_out = {}
+for season, grp in head.groupby("season"):
+    rows = []
+    for r in grp.itertuples():
+        if r.games < QUALIFY_REF_GAMES:
+            continue
+        lg = float(lg_season[season])
+        rows.append({
+            "id": int(r.ref_id),
+            "name": ref_name[int(r.ref_id)],
+            "games": int(r.games),
+            "per100": round(r.per100, 2),
+            "diff": round(r.per100 - lg, 2),
+        })
+    rows.sort(key=lambda x: -x["diff"])
+    referees_out[season] = rows
+
+# Per-official profile, keyed by id. Each qualified season carries the
+# headline plus the by-quarter and by-script splits, each against that
+# split's own league baseline (so a Q4 rate is judged vs the league's Q4).
+qg_g = qg.groupby(["ref_id", "season"])
+sg_g = sg.groupby(["ref_id", "season"])
+ref_profiles: dict[str, dict] = {}
+for r in head.itertuples():
+    if r.games < QUALIFY_REF_GAMES:
+        continue
+    rid, season = int(r.ref_id), r.season
+    prof = ref_profiles.setdefault(
+        str(rid), {"name": ref_name[rid], "seasons": [], "detail": {}}
+    )
+    prof["seasons"].append(season)
+    qmap = {qr.q: qr for qr in qg_g.get_group((rid, season)).itertuples()}
+    quarters = [
+        {
+            "q": q,
+            "poss": int(qmap[q].poss),
+            "per100": round(qmap[q].per100, 2),
+            "lg": round(float(lg_quarter[(season, q)]), 2),
+        }
+        for q in QUARTER_ORDER if q in qmap
+    ]
+    smap = {sr.bucket: sr for sr in sg_g.get_group((rid, season)).itertuples()}
+    script = [
+        {
+            "b": b,
+            "games": int(smap[b].games),
+            "poss": int(smap[b].poss),
+            "per100": round(smap[b].per100, 2),
+            "lg": round(float(lg_script[(season, b)]), 2),
+        }
+        for b in SCRIPT_ORDER if b in smap
+    ]
+    prof["detail"][season] = {
+        "games": int(r.games),
+        "poss": int(r.poss),
+        "fta": int(r.fta),
+        "per100": round(r.per100, 2),
+        "lg": round(float(lg_season[season]), 2),
+        "quarters": quarters,
+        "script": script,
+    }
+for prof in ref_profiles.values():
+    prof["seasons"] = sorted(prof["seasons"])
+
+# Team-season FTAOE drawn (offense) and conceded (defense), anchored
+# expectations so each season sums to ~0 on both sides.
+tm = pd.read_sql(
+    """SELECT p.game_id, p.possession_number, g.season,
+              p.offense_team_id, p.sfta, pr.xfta,
+              m.home_team_id, m.away_team_id
+       FROM possessions p
+       JOIN games g ON g.GAME_ID = p.game_id
+       JOIN predictions_poss_clean pr
+         ON pr.game_id = p.game_id AND pr.possession_number = p.possession_number
+       JOIN game_meta m ON m.game_id = p.game_id
+       WHERE p.offense_team_id > 0
+         AND p.finisher_player_id IS NOT NULL""",
+    conn,
+)
+tm["def_team_id"] = np.where(
+    tm["offense_team_id"] == tm["home_team_id"],
+    tm["away_team_id"], tm["home_team_id"],
+)
+def team_side(key):
+    agg = (
+        tm.groupby([key, "season"])
+        .agg(poss=("sfta", "size"), fta=("sfta", "sum"), xfta=("xfta", "sum"))
+        .reset_index()
+    )
+    agg["per100"] = (agg["fta"] - agg["xfta"]) / agg["poss"] * 100
+    return agg
+off = team_side("offense_team_id")
+def_ = team_side("def_team_id")
+teams_out = {}
+for season in sorted(off["season"].unique()):
+    o = off[off["season"] == season].set_index("offense_team_id")
+    d = def_[def_["season"] == season].set_index("def_team_id")
+    rows = []
+    for tid in o.index:
+        if tid not in TEAM_ABBREV or tid not in d.index:
+            continue
+        rows.append({
+            "team": TEAM_ABBREV[tid],
+            "drawn": round(float(o.loc[tid, "per100"]), 2),
+            "conceded": round(float(d.loc[tid, "per100"]), 2),
+            "poss": int(o.loc[tid, "poss"]),
+        })
+    rows.sort(key=lambda r: -r["drawn"])
+    teams_out[season] = rows
+
 # ------------------------------------------------------------------- meta
 metrics = json.loads(
     (Path(__file__).parent / "model_artifacts" / "headline_v4_context_metrics.json")
@@ -299,8 +489,20 @@ reliability = json.loads(
     (Path(__file__).parent / "model_artifacts" / "reliability.json").read_text()
 )
 n_poss = pred.shape[0]
+all_seasons = sorted(lb["season"].unique().tolist())
+# The site's default season: latest with >= 50 qualified players, so a
+# brand-new October season stays selectable but does not take over the
+# landing/leaderboard until per-100 rates mean something.
+qual_counts = (
+    lb[lb["possessions"] >= QUALIFY_POSS].groupby("season").size().to_dict()
+)
+default_season = next(
+    (s2 for s2 in reversed(all_seasons) if qual_counts.get(s2, 0) >= 50),
+    all_seasons[-1],
+)
 meta = {
-    "seasons": sorted(lb["season"].unique().tolist()),
+    "seasons": all_seasons,
+    "defaultSeason": default_season,
     "qualifyPossessions": QUALIFY_POSS,
     "nPossessions": int(n_poss),
     "leagueRatePer100": round(float(pred["sfta"].mean()) * 100, 2),
@@ -327,6 +529,9 @@ out = {
     "distributions": distributions,
     "leagueZones": league_zone_out,
     "calibration": calibration,
+    "referees": referees_out,
+    "refProfiles": ref_profiles,
+    "teams": teams_out,
 }
 
 OUT.parent.mkdir(parents=True, exist_ok=True)

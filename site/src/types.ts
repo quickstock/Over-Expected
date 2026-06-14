@@ -60,6 +60,35 @@ export interface CalibrationBin {
   n: number;
 }
 
+/** Shooting-foul FTA per 100 possessions in one slice, against that slice's
+    own league baseline. `per100` is the official, `lg` the league. */
+export interface WhistleSplit {
+  poss: number;
+  /** Shooting-foul FTA per 100 possessions for this official in the slice. */
+  per100: number;
+  /** League per-100 baseline for the same slice (season + quarter/script). */
+  lg: number;
+}
+
+export interface RefSeasonDetail {
+  games: number;
+  poss: number;
+  fta: number;
+  per100: number;
+  lg: number;
+  /** By quarter; "Q1".."Q4" plus "OT" when worked. */
+  quarters: (WhistleSplit & { q: string })[];
+  /** By final game script: "close" (<=5), "mid" (6-12), "blowout" (13+). */
+  script: (WhistleSplit & { b: string; games: number })[];
+}
+
+export interface RefProfile {
+  name: string;
+  /** Seasons worked with >= 20 games, ascending. */
+  seasons: string[];
+  detail: Record<string, RefSeasonDetail>;
+}
+
 export interface SiteData {
   meta: {
     seasons: string[];
@@ -85,8 +114,10 @@ export interface SiteData {
   /** Per season: officials with >= 20 games, sorted by diff desc. */
   referees: Record<
     string,
-    { name: string; games: number; per100: number; diff: number }[]
+    { id: number; name: string; games: number; per100: number; diff: number }[]
   >;
+  /** Per-official profile, keyed by official id (string). */
+  refProfiles: Record<string, RefProfile>;
   /** Per season: 30 teams, FTAOE/100 drawn (offense) and conceded (defense). */
   teams: Record<
     string,

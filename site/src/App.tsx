@@ -11,6 +11,8 @@ import OpenData from "./views/OpenData";
 import Story from "./views/Story";
 import Compare from "./views/Compare";
 import League from "./views/League";
+import Referees from "./views/Referees";
+import Referee from "./views/Referee";
 import Feedback from "./views/Feedback";
 
 function ScrollToTop() {
@@ -49,6 +51,8 @@ export default function App() {
           <Route path="/crackdown" element={<Story />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/league" element={<League />} />
+          <Route path="/referees" element={<Referees />} />
+          <Route path="/referee/:id" element={<Referee />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="*" element={<Landing />} />
         </Routes>
