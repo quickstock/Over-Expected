@@ -70,7 +70,7 @@ function SortHeader({
 export default function Referees() {
   const data = useData();
   const [params, setParams] = useSearchParams();
-  useTitle("Referees · FTAOE");
+  useTitle("Referees · Over Expected");
 
   const seasons = data.meta.seasons;
   const season = seasons.includes(params.get("season") ?? "")

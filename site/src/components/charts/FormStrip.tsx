@@ -4,6 +4,7 @@ import { rollingRate } from "../../lib/series";
 import { divergingColor, divergingText } from "../../lib/color";
 import { int, signed } from "../../lib/format";
 import { useMeasure } from "../../lib/useMeasure";
+import { useRevealed } from "../../lib/useRevealed";
 
 interface Props {
   /** Per game, schedule order: [actual FTA, expected, possessions]. */
@@ -15,7 +16,7 @@ interface Props {
 }
 
 /**
- * Form: trailing-window FTAOE per 100 possessions, one bar per game —
+ * Form: trailing-window FTAOE per 100 possessions, one bar per game,
  * the leaderboard's unit, watched move through a season. Bars animate
  * between window sizes (geometry transitions; reduced motion safe).
  */
@@ -27,6 +28,7 @@ export default function FormStrip({
 }: Props) {
   const [wrapRef, width] = useMeasure<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const revealed = useRevealed(wrapRef);
 
   const points = useMemo(() => rollingRate(games, win), [games, win]);
   const n = games.length;
@@ -94,28 +96,35 @@ export default function FormStrip({
             trailing {win} games
           </text>
 
-          {points.map((p) => {
-            const h = Math.max(1.5, Math.abs(scaleY(p.per100)));
-            const up = p.per100 >= 0;
-            return (
-              <rect
-                key={p.g}
-                x={x(p.g) - barW / 2}
-                y={up ? mid - h : mid}
-                width={barW}
-                height={h}
-                rx={1}
-                fill={divergingColor(p.per100)}
-                opacity={hover === null || hover === p.g ? 1 : 0.45}
-                style={{
-                  transition:
-                    "y 320ms var(--ease-out-strong), height 320ms var(--ease-out-strong), opacity 150ms ease",
-                }}
-                onPointerEnter={() => setHover(p.g)}
-                onPointerLeave={() => setHover(null)}
-              />
-            );
-          })}
+          <g
+            style={{
+              clipPath: revealed ? "inset(-6% -6% -6% -6%)" : "inset(-6% 102% -6% -6%)",
+              transition: "clip-path 900ms var(--ease-out-strong)",
+            }}
+          >
+            {points.map((p) => {
+              const h = Math.max(1.5, Math.abs(scaleY(p.per100)));
+              const up = p.per100 >= 0;
+              return (
+                <rect
+                  key={p.g}
+                  x={x(p.g) - barW / 2}
+                  y={up ? mid - h : mid}
+                  width={barW}
+                  height={h}
+                  rx={1}
+                  fill={divergingColor(p.per100)}
+                  opacity={hover === null || hover === p.g ? 1 : 0.45}
+                  style={{
+                    transition:
+                      "y 320ms var(--ease-out-strong), height 320ms var(--ease-out-strong), opacity 150ms ease",
+                  }}
+                  onPointerEnter={() => setHover(p.g)}
+                  onPointerLeave={() => setHover(null)}
+                />
+              );
+            })}
+          </g>
 
           {/* direct labels on the extremes: peak beyond its tip, trough on
               the empty side of the baseline when every bar points one way */}
@@ -154,7 +163,7 @@ export default function FormStrip({
           }}
         >
           <div className="text-ink-faint">
-            games {hovered.g - win + 1}–{hovered.g}
+            games {hovered.g - win + 1}-{hovered.g}
           </div>
           <div style={{ color: divergingText(hovered.per100) }}>
             {signed(hovered.per100, 1)} per 100

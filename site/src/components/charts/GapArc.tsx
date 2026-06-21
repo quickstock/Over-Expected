@@ -154,7 +154,7 @@ export default function GapArc({
           width={width}
           height={height}
           role="img"
-          aria-label={`Cumulative free throw attempts from shooting fouls versus league-average pace across ${n} games. Final: ${last.cumActual} actual, ${last.cumExpected.toFixed(0)} expected, gap ${signed(finalDiff, 1)}.`}
+          aria-label={`Cumulative actual versus league-average pace across ${n} games. Final: ${Math.round(last.cumActual)} actual, ${last.cumExpected.toFixed(0)} expected, gap ${signed(finalDiff, 1)}.`}
         >
           <g style={sweepStyle}>
             {gapPaths.map((p, i) => (
@@ -213,7 +213,7 @@ export default function GapArc({
               fill="var(--color-ink)"
               fontWeight={600}
             >
-              {last.cumActual} actual
+              {Math.round(last.cumActual)} actual
             </text>
             <text
               x={x(n) + 7}
@@ -282,7 +282,7 @@ export default function GapArc({
         >
           <div className="text-ink-faint">game {hovered.g}</div>
           <div className="text-ink">
-            {hovered.cumActual} act · {hovered.cumExpected.toFixed(1)} exp
+            {Math.round(hovered.cumActual)} act · {Math.round(hovered.cumExpected)} exp
           </div>
           <div style={{ color: divergingText(hovered.cumActual - hovered.cumExpected) }}>
             {signed(hovered.cumActual - hovered.cumExpected, 1)}

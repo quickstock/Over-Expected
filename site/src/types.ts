@@ -17,6 +17,32 @@ export interface LeaderboardRow {
   spct: number | null;
 }
 
+/** One player-season in the shot-value suite (xFG% + xFTA -> points). */
+export interface ShotValueRow {
+  id: number;
+  name: string;
+  pos: string | null;
+  teams: string[];
+  fga: number;
+  poss: number;
+  /** Actual FG% (percent). */
+  fgPct: number;
+  /** Expected FG% from the calibrated, shooter-agnostic xFG% model. */
+  xfgPct: number;
+  /** Shot-making over expected: FG% - xFG%, percentage points. */
+  makeOE: number;
+  /** Shot-selection value: mean expected points per shot of the looks taken. */
+  xptsShot: number;
+  /** Shot-making in points: FG points over expected per 100 possessions. */
+  fgPoe100: number;
+  /** Season free-throw make rate, for valuing drawn FTs in the gap chart. */
+  ftPct: number;
+  /** Foul-drawing: FTAOE per 100 possessions (the live FTAOE board's unit). */
+  ftaoe100: number;
+  /** Combined points over expected per 100 possessions (the headline). */
+  poe100: number;
+}
+
 export interface ZoneAgg {
   zone: string;
   area: string;
@@ -24,8 +50,13 @@ export interface ZoneAgg {
   share: number;
 }
 
-/** Per game, in schedule order: [actual shooting-foul FTA, expected, possessions]. */
-export type GameLine = [number, number, number];
+/**
+ * Per game, in schedule order:
+ * [actual shooting-foul FTA, expected FTA, possessions, actual FG points,
+ *  expected FG points]. The last two power the shot-value / shot-making
+ * gap and form charts; absent in exports made before the suite existed.
+ */
+export type GameLine = [number, number, number, number?, number?];
 
 /**
  * Shooting fouls itemized. FT counts by trip type; the identity
@@ -118,9 +149,18 @@ export interface SiteData {
   >;
   /** Per-official profile, keyed by official id (string). */
   refProfiles: Record<string, RefProfile>;
+  /** Per season: qualified player-seasons in the shot-value suite. */
+  shotValue: Record<string, ShotValueRow[]>;
   /** Per season: 30 teams, FTAOE/100 drawn (offense) and conceded (defense). */
-  teams: Record<
-    string,
-    { team: string; drawn: number; conceded: number; poss: number }[]
-  >;
+  teams: Record<string, TeamRow[]>;
+}
+
+/** One team-season: shooting fouls drawn (offense) and conceded (defense). */
+export interface TeamRow {
+  team: string;
+  poss: number;
+  /** FTAOE/100 the offense draws. */
+  drawn: number;
+  /** FTAOE/100 the defense concedes. */
+  conceded: number;
 }

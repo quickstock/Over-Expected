@@ -6,7 +6,7 @@ import { useTitle } from "../lib/useTitle";
  * No backend, honeypot field for bots, redirect back here with ?sent=1.
  */
 export default function Feedback() {
-  useTitle("Feedback · FTAOE");
+  useTitle("Feedback · Over Expected");
   const [params] = useSearchParams();
   const sent = params.get("sent") === "1";
 
@@ -35,12 +35,12 @@ export default function Feedback() {
           method="POST"
           className="mt-10 flex flex-col gap-5"
         >
-          <input type="hidden" name="_subject" value="FTAOE feedback" />
+          <input type="hidden" name="_subject" value="Over Expected feedback" />
           <input type="hidden" name="_captcha" value="false" />
           <input
             type="hidden"
             name="_next"
-            value="https://ftaoe.vercel.app/feedback?sent=1"
+            value="https://over-expected.vercel.app/feedback?sent=1"
           />
           <input
             type="text"

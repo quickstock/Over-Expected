@@ -2,6 +2,7 @@ import type { LeaderboardRow } from "../../types";
 import { divergingColor, divergingText } from "../../lib/color";
 import { signed } from "../../lib/format";
 import { useMeasure } from "../../lib/useMeasure";
+import { useRevealed } from "../../lib/useRevealed";
 
 /**
  * Career trajectory: FTAOE per 100 by season, dots in the diverging
@@ -22,6 +23,7 @@ export default function CareerStrip({
   className?: string;
 }) {
   const [wrapRef, width] = useMeasure<HTMLDivElement>();
+  const revealed = useRevealed(wrapRef);
   const n = rows.length;
   if (n < 2) return null;
 
@@ -61,7 +63,19 @@ export default function CareerStrip({
             fill="none"
             stroke="var(--color-ink-faint)"
             strokeWidth={1.25}
+            pathLength={1}
+            style={{
+              strokeDasharray: 1,
+              strokeDashoffset: revealed ? 0 : 1,
+              transition: "stroke-dashoffset 850ms var(--ease-out-strong)",
+            }}
           />
+          <g
+            style={{
+              clipPath: revealed ? "inset(-12% -4% -12% -4%)" : "inset(-12% 102% -12% -4%)",
+              transition: "clip-path 850ms var(--ease-out-strong)",
+            }}
+          >
           {rows.map((r, i) => {
             const active = r.season === activeSeason;
             return (
@@ -120,6 +134,7 @@ export default function CareerStrip({
               </g>
             );
           })}
+          </g>
         </svg>
       )}
     </div>

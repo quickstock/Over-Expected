@@ -102,7 +102,7 @@ function DuelRow({
         className="font-mono tnum text-right text-sm"
         style={{ color: aVal !== null ? divergingText(aVal) : undefined }}
       >
-        {aVal !== null ? signed(aVal, 1) : "—"}
+        {aVal !== null ? signed(aVal, 1) : "–"}
       </span>
       <div>
         <p className="mb-1.5 text-center font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
@@ -148,7 +148,7 @@ function DuelRow({
         className="font-mono tnum text-sm"
         style={{ color: bVal !== null ? divergingText(bVal) : undefined }}
       >
-        {bVal !== null ? signed(bVal, 1) : "—"}
+        {bVal !== null ? signed(bVal, 1) : "–"}
       </span>
     </div>
   );
@@ -156,7 +156,7 @@ function DuelRow({
 
 export default function Compare() {
   const data = useData();
-  useTitle("Compare · FTAOE");
+  useTitle("Compare · Over Expected");
   const [params, setParams] = useSearchParams();
 
   const aId = Number(params.get("a")) || null;

@@ -1,0 +1,19 @@
+{
+  "params": {
+    "const": -1.8566017943572999,
+    "period": 0.08380608895564942,
+    "seconds_remaining_in_period": -0.00014450556538661612,
+    "score_margin": 0.0030198179538776346,
+    "in_bonus": -0.08834437721709507
+  },
+  "converged": true,
+  "llf": -774162.2005202014,
+  "deviance": 1195100.9725579345,
+  "feature_names": [
+    "const",
+    "period",
+    "seconds_remaining_in_period",
+    "score_margin",
+    "in_bonus"
+  ]
+}

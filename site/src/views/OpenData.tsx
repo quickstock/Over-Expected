@@ -28,7 +28,7 @@ function FileRow({
 
 export default function OpenData() {
   const data = useData();
-  useTitle("Data · FTAOE");
+  useTitle("Data · Over Expected");
   const { meta } = data;
   const base = import.meta.env.BASE_URL;
 
@@ -89,7 +89,7 @@ export default function OpenData() {
           .
         </p>
         <p>
-          If you publish something built on this, credit "FTAOE" with a link
+          If you publish something built on this, credit "Over Expected" with a link
           back, and keep the framing descriptive: the number blends
           playstyle, contact-seeking skill, and officiating, and it does not
           prove referee bias. Underlying play-by-play and tracking

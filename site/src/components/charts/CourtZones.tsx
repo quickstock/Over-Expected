@@ -1,11 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { ZoneAgg } from "../../types";
 import { int } from "../../lib/format";
+import { useRevealed } from "../../lib/useRevealed";
 
 /**
  * Where a player's charged field-goal attempts come from, by official
  * shot zone. Geometry is real court markings (units: tenths of feet,
- * baseline at top). Fill intensity is neutral ink — the diverging
+ * baseline at top). Fill intensity is neutral ink, the diverging
  * encoding belongs to FTAOE and is never used here.
  *
  * Fouled misses are not charged shots and have no location; they are
@@ -57,6 +58,8 @@ interface Props {
 }
 
 export default function CourtZones({ zones, footnote, className = "" }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const revealed = useRevealed(wrapRef);
   const { byZone, total, backcourt } = useMemo(() => {
     const byZone = new Map<string, { n: number; share: number }>();
     for (const z of zones) {
@@ -88,12 +91,18 @@ export default function CourtZones({ zones, footnote, className = "" }: Props) {
     share >= 0.095 ? `${Math.round(share * 100)}%` : `${(share * 100).toFixed(1)}%`;
 
   return (
-    <div className={className}>
+    <div ref={wrapRef} className={className}>
       <svg
         viewBox="0 0 500 434"
         className="w-full"
         role="img"
         aria-label={`Share of ${int(total)} charged field-goal attempts by court zone.`}
+        style={{
+          opacity: revealed ? 1 : 0,
+          transform: revealed ? "scale(1)" : "scale(0.98)",
+          transformOrigin: "center",
+          transition: "opacity 600ms ease, transform 600ms var(--ease-out-strong)",
+        }}
       >
         {/* zone fills */}
         {ZONES.map((z) => {

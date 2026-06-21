@@ -1,77 +1,43 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useData } from "../data";
+import type { TeamRow } from "../types";
 import { useTitle } from "../lib/useTitle";
 import { divergingText } from "../lib/color";
-import { int, signed } from "../lib/format";
+import { signed } from "../lib/format";
 import { useMeasure } from "../lib/useMeasure";
+import { useRevealed } from "../lib/useRevealed";
 import SegmentedControl from "../components/SegmentedControl";
+import TeamScatter from "../components/charts/TeamScatter";
+
+const WARM = "oklch(0.58 0.17 38)";
 
 /**
- * Officials as a neutral strip: x = shooting-foul FTA per 100 in their
- * games minus the season league rate. Descriptive league-level fact;
- * deliberately NOT the diverging encoding (these are not player FTAOE
- * values) and deliberately not crossed with players.
+ * League shooting-foul rate per 100 by season: the foul environment over time.
+ * The 2021-22 crackdown is marked warm. The line draws in on first view.
  */
-function RefStrip({
-  refs,
-  height = 190,
+function LeagueTrend({
+  seasons,
+  rates,
 }: {
-  refs: { id: number; name: string; games: number; per100: number; diff: number }[];
-  height?: number;
+  seasons: string[];
+  rates: Record<string, number>;
 }) {
-  const navigate = useNavigate();
   const [wrapRef, width] = useMeasure<HTMLDivElement>();
-  const [hover, setHover] = useState<number | null>(null);
-
-  const pad = { top: 44, bottom: 30, left: 12, right: 12 };
+  const revealed = useRevealed(wrapRef);
+  const pts = seasons.filter((s) => rates[s] != null).map((s) => ({ s, v: rates[s] }));
+  const height = 210;
+  const pad = { top: 26, right: 16, bottom: 32, left: 16 };
   const innerW = Math.max(40, width - pad.left - pad.right);
-  const midY = pad.top + (height - pad.top - pad.bottom) / 2;
-  const maxAbs = Math.max(1, ...refs.map((r) => Math.abs(r.diff))) * 1.12;
-  const x = (v: number) => pad.left + ((v + maxAbs) / (2 * maxAbs)) * innerW;
-
-  const dots = useMemo(() => {
-    const r = 4;
-    const gap = 2 * r + 1;
-    const placed: { px: number; py: number; i: number }[] = [];
-    refs
-      .map((d, i) => ({ d, i }))
-      .sort((a, b) => a.d.diff - b.d.diff)
-      .forEach(({ d, i }) => {
-        const px = x(d.diff);
-        const conflicts = placed.filter((q) => Math.abs(q.px - px) < gap);
-        const cands = [0];
-        for (const q of conflicts) {
-          const dy = Math.sqrt(Math.max(0, gap * gap - (q.px - px) ** 2));
-          cands.push(q.py - midY + dy, q.py - midY - dy);
-        }
-        cands.sort((a, b) => Math.abs(a) - Math.abs(b));
-        let off = 0;
-        for (const c of cands) {
-          if (
-            conflicts.every(
-              (q) => (q.px - px) ** 2 + (q.py - (midY + c)) ** 2 >= gap * gap - 0.01,
-            )
-          ) {
-            off = c;
-            break;
-          }
-        }
-        placed.push({ px, py: midY + off, i });
-      });
-    return placed;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refs, width]);
-
-  const extremes = useMemo(() => {
-    const sorted = [...refs].sort((a, b) => b.diff - a.diff);
-    return new Set(
-      [...sorted.slice(0, 2), ...sorted.slice(-2)].map((r) => r.name),
-    );
-  }, [refs]);
-
-  const hovered = hover !== null ? refs[hover] : null;
-  const hoveredDot = hover !== null ? dots.find((d) => d.i === hover) : null;
+  const innerH = height - pad.top - pad.bottom;
+  const vals = pts.map((p) => p.v);
+  const lo = Math.min(...vals) - 0.5;
+  const hi = Math.max(...vals) + 0.5;
+  const x = (i: number) => pad.left + (i / Math.max(1, pts.length - 1)) * innerW;
+  const y = (v: number) => pad.top + innerH - ((v - lo) / (hi - lo)) * innerH;
+  const path = pts
+    .map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(p.v).toFixed(1)}`)
+    .join("");
 
   return (
     <div ref={wrapRef} className="relative">
@@ -80,94 +46,77 @@ function RefStrip({
           width={width}
           height={height}
           role="img"
-          aria-label={`${refs.length} officials by shooting-foul rate in their games vs the season league rate.`}
+          aria-label={`League shooting-foul free throws per 100 by season, from ${pts[0].v.toFixed(1)} to ${pts[pts.length - 1].v.toFixed(1)}.`}
         >
-          <line
-            x1={x(0)}
-            x2={x(0)}
-            y1={pad.top - 14}
-            y2={height - pad.bottom + 6}
-            stroke="var(--color-line)"
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--color-ink)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            pathLength={1}
+            style={{
+              strokeDasharray: 1,
+              strokeDashoffset: revealed ? 0 : 1,
+              transition: "stroke-dashoffset 900ms var(--ease-out-strong)",
+            }}
           />
-          <text
-            x={x(0)}
-            y={height - 9}
-            textAnchor="middle"
-            fontSize={10.5}
-            className="font-mono"
-            fill="var(--color-ink-faint)"
-          >
-            league rate
-          </text>
-          <text
-            x={pad.left}
-            y={height - 9}
-            textAnchor="start"
-            fontSize={10.5}
-            className="font-mono"
-            fill="var(--color-ink-faint)"
-          >
-            ← fewer FTs in their games
-          </text>
-          <text
-            x={width - pad.right}
-            y={height - 9}
-            textAnchor="end"
-            fontSize={10.5}
-            className="font-mono"
-            fill="var(--color-ink-faint)"
-          >
-            more →
-          </text>
-          {dots.map(({ px, py, i }) => (
-            <circle
-              key={i}
-              cx={px}
-              cy={py}
-              r={hover === i ? 5.5 : 4}
-              fill={
-                hover === i ? "var(--color-ink)" : "oklch(0.45 0.008 270 / 0.55)"
-              }
-              className="cursor-pointer"
-              style={{ transition: "r 120ms ease" }}
-              onPointerEnter={() => setHover(i)}
-              onPointerLeave={() => setHover(null)}
-              onClick={() => navigate(`/referee/${refs[i].id}`)}
-            >
-              <title>{`${refs[i].name} — open profile`}</title>
-            </circle>
-          ))}
-          {dots
-            .filter(({ i }) => extremes.has(refs[i].name))
-            .map(({ px, py, i }) => (
-              <text
-                key={`l${i}`}
-                x={px}
-                y={py - 10}
-                textAnchor="middle"
-                fontSize={10.5}
-                fontWeight={600}
-                className="font-display"
-                fill="var(--color-ink-soft)"
+          {pts.map((p, i) => {
+            const crack = p.s === "2021-22";
+            return (
+              <g
+                key={p.s}
+                style={{
+                  opacity: revealed ? 1 : 0,
+                  transition: `opacity 360ms ease ${250 + i * 60}ms`,
+                }}
               >
-                {refs[i].name.split(" ").slice(-1)[0]}
-              </text>
-            ))}
+                <circle
+                  cx={x(i)}
+                  cy={y(p.v)}
+                  r={crack ? 5 : 3.5}
+                  fill={crack ? WARM : "var(--color-ink)"}
+                  stroke="var(--color-paper)"
+                  strokeWidth={crack ? 1.75 : 1}
+                />
+                <text
+                  x={x(i)}
+                  y={y(p.v) - 12}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={crack ? 700 : 400}
+                  className="font-mono tnum"
+                  fill={crack ? WARM : "var(--color-ink)"}
+                >
+                  {p.v.toFixed(1)}
+                </text>
+                <text
+                  x={x(i)}
+                  y={height - 10}
+                  textAnchor="middle"
+                  fontSize={10}
+                  className="font-mono"
+                  fill={crack ? WARM : "var(--color-ink-faint)"}
+                >
+                  '{p.s.slice(2, 4)}-{p.s.slice(5)}
+                </text>
+                {crack && (
+                  <text
+                    x={x(i)}
+                    y={height - 22}
+                    textAnchor="middle"
+                    fontSize={9.5}
+                    className="font-display"
+                    fill={WARM}
+                  >
+                    crackdown
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
-      )}
-      {hovered && hoveredDot && (
-        <div
-          className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-line bg-paper px-2.5 py-1.5 text-[11px] leading-snug shadow-sm"
-          style={{
-            left: Math.min(Math.max(hoveredDot.px - 70, 0), Math.max(0, width - 180)),
-            top: hoveredDot.py - 58,
-          }}
-        >
-          <div className="font-display font-semibold text-ink">{hovered.name}</div>
-          <div className="font-mono tnum text-ink-soft">
-            {signed(hovered.diff, 1)} vs league · {int(hovered.games)} games
-          </div>
-        </div>
       )}
     </div>
   );
@@ -175,26 +124,24 @@ function RefStrip({
 
 export default function League() {
   const data = useData();
-  useTitle("League context · FTAOE");
+  useTitle("League context · Over Expected");
   const seasons = data.meta.seasons;
   const [season, setSeason] = useState(data.meta.defaultSeason);
-  const [sort, setSort] = useState<"drawn" | "conceded">("drawn");
+  const [side, setSide] = useState<"drawn" | "conceded">("drawn");
 
   const teams = useMemo(
-    () =>
-      [...(data.teams[season] ?? [])].sort((a, b) => b[sort] - a[sort]),
-    [data.teams, season, sort],
+    () => [...(data.teams[season] ?? [])].sort((a, b) => b[side] - a[side]),
+    [data.teams, season, side],
   );
-  const refs = data.referees[season] ?? [];
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
-      <h1 className="font-display text-3xl font-bold tracking-tight text-ink sm:text-5xl">
+      <h1 className="font-display text-3xl font-bold tracking-tight text-balance text-ink sm:text-5xl">
         League context
       </h1>
       <p className="mt-3 max-w-prose text-sm leading-relaxed text-ink-soft sm:text-base">
-        Is it the player, or the situation around him? Team styles and
-        officiating assignments, measured with the same baseline.
+        Is it the player, or the situation around him? Shooting fouls drawn and
+        conceded by team, the context a player's foul-drawing number rides on.
       </p>
 
       <SegmentedControl
@@ -209,16 +156,36 @@ export default function League() {
         onChange={setSeason}
       />
 
-      {/* teams */}
-      <section className="mt-12">
+      {/* offense vs defense scatter */}
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+          Drawn vs conceded, {season}
+        </h2>
+        <p className="mt-1.5 max-w-prose text-sm text-ink-soft">
+          Shooting-foul free throws over expected per 100 possessions, both
+          ends. Drawn is the offense; conceded is the defense. Top-right both
+          draws a lot and gives a lot up.
+        </p>
+        <div className="mt-6">
+          <TeamScatter
+            teams={data.teams[season] ?? []}
+            off={(t) => t.drawn}
+            def={(t) => t.conceded}
+            xAxis="draws more →"
+            defLabel="Conceded"
+          />
+        </div>
+        <p className="mt-2 max-w-prose text-xs leading-relaxed text-ink-faint">
+          Each dot is a team, centered on the league average on both axes. Warm
+          dots draw more than they concede, cool dots the reverse.
+        </p>
+      </section>
+
+      {/* ranked table */}
+      <section className="mt-14">
         <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
           Who draws, who concedes
         </h2>
-        <p className="mt-1.5 max-w-prose text-sm text-ink-soft">
-          Team shooting-foul free throws vs expected per 100 possessions,
-          {" "}{season}. Drawn is the offense; conceded is the defense. The
-          league sums to zero on both sides.
-        </p>
         <div className="mt-6 grid grid-cols-[2rem_minmax(0,1fr)_6rem_6.5rem] items-end gap-x-4 border-b border-line pb-2">
           <span />
           <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
@@ -228,21 +195,21 @@ export default function League() {
             <button
               key={k}
               type="button"
-              onClick={() => setSort(k)}
-              aria-pressed={sort === k}
+              onClick={() => setSide(k)}
+              aria-pressed={side === k}
               className={`text-right font-display text-[11px] font-medium uppercase tracking-wider transition-colors duration-150 ${
-                sort === k ? "text-ink" : "text-ink-faint hover:text-ink-soft"
+                side === k ? "text-ink" : "text-ink-faint hover:text-ink-soft"
               }`}
             >
               {k}
               <span className="ml-1 inline-block w-2 font-mono">
-                {sort === k ? "↓" : ""}
+                {side === k ? "↓" : ""}
               </span>
             </button>
           ))}
         </div>
         <ol>
-          {teams.map((t, i) => (
+          {teams.map((t: TeamRow, i) => (
             <li
               key={t.team}
               className="grid grid-cols-[2rem_minmax(0,1fr)_6rem_6.5rem] items-center gap-x-4 border-b border-line-soft py-2"
@@ -269,46 +236,33 @@ export default function League() {
           ))}
         </ol>
         <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-          Warm = more shooting-foul free throws than expected, cool = fewer;
-          for conceded, warm means the defense gives them up. A player's
-          number partly rides on this: check his team before crediting him
-          alone.
+          Warm = more shooting-foul free throws than expected, cool = fewer; for
+          conceded, warm means the defense gives them up. A player's number
+          partly rides on this: check his team before crediting him alone.
         </p>
       </section>
 
-      {/* officials */}
-      <section className="mt-16">
+      {/* the foul environment over time + the crackdown */}
+      <section className="mt-16 border-t border-line pt-12">
         <h2 className="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl">
-          Officials, measured
+          The foul environment, over time
         </h2>
-        <p className="mt-1.5 max-w-prose text-sm text-ink-soft">
-          Each dot is one official ({season}, minimum 20 games): the
-          shooting-foul rate in games they worked, against the season's
-          league rate. Tap one for the full profile, or see{" "}
-          <Link
-            to={`/referees?season=${encodeURIComponent(season)}`}
-            className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
-          >
-            every official
-          </Link>
-          .
+        <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-ink-soft">
+          League-wide shooting-foul free throws per 100 possessions, season by
+          season. The 2021-22 crackdown on non-basketball moves barely dented
+          the league rate: it repriced a handful of players rather than changing
+          the whole game, and the environment drifted back up the next season.
         </p>
-        <RefStrip refs={refs} />
-        <p className="mt-3 max-w-prose text-xs leading-relaxed text-ink-faint">
-          Descriptive, league-level only. Crew tendency is one of the
-          context features the expected-FTA model adjusts for, and
-          assignments are not random (workloads and game slates differ).
-          This site deliberately does not publish player-by-official
-          splits: with three officials per game and a few dozen shared
-          games per pair, those tables manufacture accusations the data
-          cannot support.{" "}
+        <div className="mt-6 max-w-2xl">
+          <LeagueTrend seasons={seasons} rates={data.meta.leagueRateBySeason} />
+        </div>
+        <p className="mt-4 text-sm text-ink-soft">
           <Link
-            to="/methodology"
-            className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
+            to="/crackdown"
+            className="font-display font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            Methodology
+            The 2021-22 crackdown, measured →
           </Link>
-          .
         </p>
       </section>
     </div>

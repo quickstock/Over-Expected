@@ -18,7 +18,7 @@ const AFTER = "2021-22";
  */
 export default function Story() {
   const data = useData();
-  useTitle("The crackdown, measured · FTAOE");
+  useTitle("The crackdown, measured · Over Expected");
 
   const { pairs, fallers, riser } = useMemo(() => {
     const a = new Map(
@@ -144,7 +144,7 @@ export default function Story() {
 
       <div className="mt-14 flex flex-wrap items-center gap-5 border-t border-line pt-8">
         <Link
-          to="/leaderboard?season=2021-22"
+          to="/leaderboard?lens=fouls&season=2021-22"
           className="rounded-md bg-ink px-5 py-2.5 font-display text-sm font-medium text-paper transition-opacity duration-150 hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           The {AFTER} leaderboard

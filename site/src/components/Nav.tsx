@@ -11,11 +11,11 @@ export default function Nav({ onSearch }: { onSearch: () => void }) {
       <div className="mx-auto flex max-w-6xl items-baseline justify-between px-5 py-4 sm:px-8">
         <Link
           to="/"
-          className="font-display text-lg font-bold tracking-tight text-ink"
+          className="font-display text-2xl font-bold tracking-tight text-ink sm:text-[28px]"
         >
-          FTAOE
-          <span className="ml-2 hidden font-serif text-sm font-normal text-ink-faint sm:inline">
-            free throw attempts over expected
+          OE
+          <span className="ml-2.5 hidden font-serif text-[15px] font-normal text-ink-faint sm:inline">
+            over expected
           </span>
         </Link>
         <nav className="flex items-baseline gap-5 sm:gap-7">

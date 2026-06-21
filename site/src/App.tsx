@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import CommandK from "./components/CommandK";
@@ -45,6 +45,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/shot-value" element={<Navigate to="/leaderboard?lens=value" replace />} />
           <Route path="/player/:id" element={<Player />} />
           <Route path="/methodology" element={<Methodology />} />
           <Route path="/data" element={<OpenData />} />

@@ -28,7 +28,7 @@ export interface RollingPoint {
 }
 
 /**
- * Trailing-window FTAOE per 100 possessions — same unit as the
+ * Trailing-window FTAOE per 100 possessions, same unit as the
  * leaderboard, computed over the last `window` games. Starts once a
  * full window exists; windows with zero possessions are skipped.
  */

@@ -40,3 +40,12 @@ cache/
 # Playwright agent CLI artifacts
 .playwright-cli/
 logs/
+
+# Derived per-shot prediction dumps (large, regenerable — keep metrics/importance/PNGs)
+model_artifacts/*predictions*.csv
+model_artifacts/gate_a_test_full.csv
+
+# Deprecated archive + local env
+_v3_archive/
+.env
+.env.*

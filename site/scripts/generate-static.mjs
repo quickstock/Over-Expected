@@ -23,7 +23,7 @@ const DIST = join(ROOT, "dist");
 const baseArg = process.argv.indexOf("--base");
 const envBase = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : "https://ftaoe.vercel.app";
+  : "https://over-expected.vercel.app";
 const BASE = (baseArg > -1 ? process.argv[baseArg + 1] : envBase).replace(/\/$/, "");
 
 const data = JSON.parse(readFileSync(join(ROOT, "public", "data.json"), "utf8"));
@@ -87,7 +87,7 @@ function card(row) {
           props: {
             style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" },
             children: [
-              { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 34, color: INK }, children: "FTAOE" } },
+              { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 34, color: INK }, children: "OE" } },
               { type: "div", props: { style: { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: 26, color: FAINT }, children: `${row.season} · shooting fouls only` } },
             ],
           },
@@ -180,7 +180,7 @@ function genericCard() {
             ],
           },
         },
-        { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 30, color: INK }, children: "FTAOE — free throw attempts over expected" } },
+        { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 30, color: INK }, children: "Over Expected — NBA shot value" } },
       ],
     },
   };
@@ -244,7 +244,7 @@ let n = 0;
 for (const row of latestByPlayer.values()) {
   await renderPng(card(row), join(DIST, "og", `p${row.id}.png`));
   shell({
-    title: `${row.name} · FTAOE`,
+    title: `${row.name} · Over Expected`,
     description: `${row.name}, ${row.season}: ${signed(row.per100)} shooting-foul free throws per 100 possessions vs the league-average rate (${ordinal(Math.floor(row.pct))} percentile, ${row.fta} FTA vs ${row.xfta.toFixed(1)} expected).`,
     path: `/player/${row.id}`,
     image: `p${row.id}.png`,
@@ -254,43 +254,43 @@ for (const row of latestByPlayer.values()) {
 }
 
 shell({
-  title: "Leaderboard · FTAOE",
+  title: "Leaderboard · Over Expected",
   description: "Free throw attempts over expected per 100 possessions: every qualified NBA player, sortable and filterable, across six seasons.",
   path: "/leaderboard",
   image: "site.png",
 });
 shell({
-  title: "Methodology · FTAOE",
+  title: "Methodology · Over Expected",
   description: "How FTAOE is measured: shooting fouls only, per possession, against each season's league-average rate. Leak-free, anchored, and honest about what it cannot prove.",
   path: "/methodology",
   image: "site.png",
 });
 shell({
-  title: "The crackdown, measured · FTAOE",
+  title: "The crackdown, measured · Over Expected",
   description: "The NBA's 2021-22 memo on non-basketball moves barely moved the league's foul rate. It surgically repriced a handful of players. Six seasons of FTAOE, measured.",
   path: "/crackdown",
   image: "site.png",
 });
 shell({
-  title: "Compare · FTAOE",
+  title: "Compare · Over Expected",
   description: "Two NBA players, same season, same baseline: FTAOE per 100, style-adjusted, and the cumulative gap, side by side.",
   path: "/compare",
   image: "site.png",
 });
 shell({
-  title: "League context · FTAOE",
+  title: "League context · Over Expected",
   description: "Team styles and officiating assignments, measured with the FTAOE baseline: who draws, who concedes, and how officials' games differ.",
   path: "/league",
   image: "site.png",
 });
 shell({
-  title: "Feedback · FTAOE",
+  title: "Feedback · Over Expected",
   description: "Spotted something off, want a feature, or disagree with the method? Send feedback.",
   path: "/feedback",
   image: "site.png",
 });
 shell({
-  title: "Data · FTAOE",
+  title: "Data · Over Expected",
   description: "Download the FTAOE dataset: leaderboard, per-game series, shot zones and foul ledgers for six NBA seasons, as static JSON.",
   path: "/data",
   image: "site.png",

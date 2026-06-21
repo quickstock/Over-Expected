@@ -146,6 +146,21 @@ per_game = pd.read_sql(
 )
 per_game["player_id"] = per_game["player_id"].astype(int)
 
+# Per-(player, game) FG points from the shot-value suite, to enrich each game
+# tuple with the shot-making side. Absent if shot_value.py hasn't run.
+fg_by_key: dict[tuple, tuple] = {}
+if conn.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='player_game_shot_value'"
+).fetchone():
+    pgfg = pd.read_sql(
+        "SELECT player_id, game_id, season, act_fg_pts, exp_fg_pts "
+        "FROM player_game_shot_value", conn)
+    fg_by_key = {
+        (int(r.player_id), r.game_id, r.season): (
+            round(float(r.act_fg_pts), 2), round(float(r.exp_fg_pts), 2))
+        for r in pgfg.itertuples()
+    }
+
 # ------------------------------------------------------- charged-FGA zones
 zones = pd.read_sql(
     """SELECT t.player_id, t.season, s.shot_zone_basic AS zone,
@@ -221,8 +236,9 @@ for (pid, season) in qual_keys:
     try:
         g = pg_grouped.get_group((pid, season))
         entry["games"] = [
-            [int(a), round(float(x), 3), int(n)]
-            for a, x, n in zip(g["actual"], g["xfta"], g["poss"])
+            [int(a), round(float(x), 3), int(n),
+             *fg_by_key.get((pid, gid, season), (0.0, 0.0))]
+            for a, x, n, gid in zip(g["actual"], g["xfta"], g["poss"], g["game_id"])
         ]
     except KeyError:
         entry["games"] = []
@@ -463,6 +479,7 @@ def team_side(key):
     return agg
 off = team_side("offense_team_id")
 def_ = team_side("def_team_id")
+
 teams_out = {}
 for season in sorted(off["season"].unique()):
     o = off[off["season"] == season].set_index("offense_team_id")
@@ -479,6 +496,46 @@ for season in sorted(off["season"].unique()):
         })
     rows.sort(key=lambda r: -r["drawn"])
     teams_out[season] = rows
+
+# ------------------------------------------------- shot-value suite (xFG%)
+# Combined shot value: expected points per shot fusing xFG% (make value) and
+# xFTA (foul-drawing value). Present only if shot_value.py has populated the
+# table, so the export never hard-depends on the model having run.
+shot_value_out: dict[str, list] = {}
+has_sv = conn.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='shot_value'"
+).fetchone()
+if has_sv:
+    sv = pd.read_sql(
+        """SELECT player_id, player_name, position, season, possessions,
+                  fga, fg_pct, xfg_pct, shot_making_oe, xpoints_per_shot,
+                  fg_pts_oe_per100, ft_pct, ftaoe, points_oe_per100
+           FROM shot_value WHERE possessions >= ?""",
+        conn, params=(QUALIFY_POSS,),
+    )
+    sv["player_id"] = sv["player_id"].astype(int)
+    for season, grp in sv.groupby("season"):
+        rows = [
+            {
+                "id": int(r.player_id),
+                "name": r.player_name,
+                "pos": (r.position or "").split("-")[0] or None,
+                "teams": teams_by_key.get((int(r.player_id), season), []),
+                "fga": int(r.fga),
+                "poss": int(r.possessions),
+                "fgPct": round(r.fg_pct * 100, 1),
+                "xfgPct": round(r.xfg_pct * 100, 1),
+                "makeOE": round(r.shot_making_oe, 1),
+                "xptsShot": round(r.xpoints_per_shot, 3),
+                "fgPoe100": round(r.fg_pts_oe_per100, 2),
+                "ftPct": round(r.ft_pct, 3),
+                "ftaoe100": round(r.ftaoe / r.possessions * 100, 1),
+                "poe100": round(r.points_oe_per100, 2),
+            }
+            for r in grp.itertuples()
+        ]
+        rows.sort(key=lambda x: -x["poe100"])
+        shot_value_out[season] = rows
 
 # ------------------------------------------------------------------- meta
 metrics = json.loads(
@@ -532,6 +589,7 @@ out = {
     "referees": referees_out,
     "refProfiles": ref_profiles,
     "teams": teams_out,
+    "shotValue": shot_value_out,
 }
 
 OUT.parent.mkdir(parents=True, exist_ok=True)

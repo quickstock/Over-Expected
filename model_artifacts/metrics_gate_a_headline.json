@@ -1,0 +1,19 @@
+{
+  "gate": "A",
+  "target": "sfta",
+  "feature_set": "headline",
+  "n_features": 14,
+  "train_size": 352410,
+  "test_size": 177132,
+  "train_mean_sfta": 0.175977,
+  "test_mean_sfta": 0.170799,
+  "baseline_pred": 0.175977,
+  "train_poisson_deviance": 320372.42,
+  "test_poisson_deviance": 160235.49,
+  "train_poisson_deviance_per_poss": 0.90909,
+  "test_poisson_deviance_per_poss": 0.904611,
+  "baseline_poisson_deviance": 167469.03,
+  "baseline_poisson_deviance_per_poss": 0.945448,
+  "lift_vs_baseline_pct": 4.32,
+  "best_iteration": 230
+}

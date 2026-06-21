@@ -6,7 +6,7 @@ import { useTitle } from "../lib/useTitle";
 
 /**
  * Calibration of the possession model: predicted vs actual shooting-foul
- * FTA rate per decile bin. Neutral ink only — this chart is not FTAOE,
+ * FTA rate per decile bin. Neutral ink only; this chart is not FTAOE,
  * so the diverging encoding stays out of it.
  */
 function CalibrationChart({ bins }: { bins: CalibrationBin[] }) {
@@ -139,7 +139,7 @@ function H2({ children }: { children: React.ReactNode }) {
 
 export default function Methodology() {
   const data = useData();
-  useTitle("Methodology \u00b7 FTAOE");
+  useTitle("Methodology \u00b7 Over Expected");
   const { meta, calibration } = data;
   const seasons = meta.seasons;
 
@@ -353,6 +353,54 @@ export default function Methodology() {
           drive or touch into free throws at an unusual rate. Neither
           reading is more correct; they answer different questions, which is
           why both numbers are shown and labeled.
+        </p>
+      </div>
+
+      <H2>Shot value and shot-making</H2>
+      <div className="mt-4 space-y-4 text-[15px] leading-relaxed sm:text-base">
+        <p>
+          FTAOE asks who draws fouls. The leaderboard, every player page, and
+          the League board also ask the fuller question: what a shot is worth,
+          counting both making it and the fouls it draws. Three lenses, same
+          player pool: <strong className="font-semibold">shot value</strong>{" "}
+          (combined), <strong className="font-semibold">shot-making</strong>{" "}
+          (field goals only), and{" "}
+          <strong className="font-semibold">foul-drawing</strong> (FTAOE).
+        </p>
+        <p>
+          <strong className="font-semibold">xFG%.</strong> A gradient-boosted
+          model gives every field-goal attempt a make probability from shot
+          context only: location, distance, zone, action type, shot type,
+          period, clock, and score margin, never who took it. It is trained
+          leak-free by season cross-fit, like the foul model: for each season
+          it trains on the other five and predicts that one, so a shot's
+          expected make never comes from a model that saw it. Summed over a
+          player's attempts, xFG% is the quality of the looks he takes; actual
+          FG% minus xFG% is shot-making over expected, expressed as field-goal
+          points over expected per 100 possessions.
+        </p>
+        <p>
+          <strong className="font-semibold">Shot value</strong> fuses the two.
+          Per shot, expected points are{" "}
+          <span className="font-mono text-[13px]">
+            xFG% × (2 or 3) + xFTA × 0.77
+          </span>
+          . The headline is points over expected per 100: field goals made
+          above the look's difficulty, plus the free throws drawn above
+          expectation. Both halves credit conversion: field goals at the
+          player's actual rate, and the free throws he draws valued at his own
+          season free-throw percentage (the expected attempts valued at the
+          league rate, ~0.77). So a foul magnet who shoots 90% from the line
+          banks more per trip than one who shoots 60%, and the number reflects
+          it; an earlier version valued both at the league rate and quietly
+          erased that difference.
+        </p>
+        <p>
+          <strong className="font-semibold">Teams</strong> get the same three
+          lenses on the League board, both ends: what a team creates on offense
+          and what it concedes on defense. At team level the free-throw side is
+          valued at the league rate rather than a team free-throw percentage,
+          which is a weaker, separate thing and is left out.
         </p>
       </div>
 

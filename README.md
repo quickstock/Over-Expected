@@ -1,85 +1,137 @@
-# xFTA — Expected Free Throw Attempts
+# Over Expected
 
-Quantifies how many free throws a field-goal attempt *should* produce (xFTA), then
-measures which NBA players draw more shooting fouls than their shot context predicts
-(FTA Over Expected, or FTAOE).
+An end-to-end NBA shot-value system. It ingests six seasons of play-by-play,
+trains leak-free models for what a shot is worth, and ships the results as a
+data-journalism site.
 
-## Quick start
+**Live: [over-expected.vercel.app](https://over-expected.vercel.app)**
+
+The core idea is a single question asked three ways: how much does a player add
+over what an average player would do with the same looks?
+
+- **Shot value**: points over expected per 100 possessions, fusing the shot and
+  the fouls it draws.
+- **Shot-making**: field-goal points over expected, actual conversion against
+  the difficulty of the looks taken (xFG%).
+- **Foul-drawing (FTAOE)**: shooting-foul free throws drawn over the league rate,
+  the original stat the project is built around.
+
+The same three lenses run on players, teams, and officials.
+
+<!-- TODO: add screenshots: hero, a player page (the gap chart), the leaderboard, the crackdown trend -->
+
+## Scale
+
+- 1.39M possessions, 1.28M field-goal attempts, 7,230 games
+- Six seasons (2020-21 to 2025-26), shooting fouls only
+- ~550 statically prerendered routes with per-route OG cards and a sitemap
+
+## How it works
+
+```
+nba_api  ->  cache/ (parquet)  ->  xfta.db (SQLite)  ->  models  ->  site/public/*.json  ->  React site
+   pull.py        raw            possession + shot tables   LightGBM      export_site_data.py     Vite + TS
+```
+
+1. **Pull** (`pull.py`): network-only fetch of play-by-play, shot charts, box
+   and tracking stats into a parquet cache. No table building here.
+2. **Build**: possession-level and shot-level tables in `xfta.db`, including a
+   target of shooting-foul free throws per possession.
+3. **Model**:
+   - Headline FTAOE: a possession-level model of expected shooting-foul free
+     throws. FTAOE is actual minus expected, anchored per season so the league
+     sits at zero and seasons are comparable.
+   - xFG% (`xfg_model.py`): a LightGBM classifier giving every field-goal
+     attempt a make probability from shot context only (location, distance,
+     zone, action type, shot type, period, clock, score margin), never the
+     shooter.
+   - Shot value (`shot_value.py`): combines xFG% (make value) with expected
+     free throws (foul value) into expected points per shot. The headline is
+     points over expected per 100, crediting actual conversion on both sides
+     (field goals at the player's rate, drawn free throws at his own FT%).
+   - Style-adjusted FTAOE: a second baseline that predicts free throws from a
+     player's attack profile (drives, paint and post touches), so the residual
+     separates contact-seeking skill from sheer volume.
+4. **Export** (`export_site_data.py`): writes a small core JSON plus per-season
+   player chunks, validated by `scripts/validate_export.py`.
+5. **Site** (`site/`): React + Vite + TypeScript, bespoke SVG charts, statically
+   prerendered with OG cards for sharing.
+
+## Leak-free and honest by construction
+
+The discipline is the point, not a footnote.
+
+- **Leak-free season cross-fit.** For each season the models train on the other
+  five and predict the held-out one, so a shot's expected value never comes from
+  a model that saw it.
+- **Anchored.** Within-season residuals sum to ~0, so seasons are directly
+  comparable rather than drifting with the league's foul environment.
+- **The possession is the unit.** A fouled miss is not a charged shot and has no
+  location, so any per-shot rate silently drops the exact plays the stat is
+  about. Rates are per 100 possessions.
+- **Scoped claims.** The number blends playstyle, contact-seeking skill, and
+  officiating. It does not isolate them and it does not prove referee bias. The
+  site deliberately publishes no player-by-official splits, which on this sample
+  size would manufacture accusations the data cannot support.
+- **Validated.** `scripts/validate_export.py` is a gate: row counts, calibration,
+  anchoring, the foul-ledger identity, and zone-share sums all have to pass
+  before an export ships.
+
+## A finding
+
+The NBA's 2021-22 "non-basketball moves" crackdown barely moved the league rate
+(17.8 to 17.5 shooting-foul FTA per 100). It was surgical: it repriced a handful
+of high-volume foul-drawers rather than changing the whole game, and the
+environment drifted back up the next season. The League tab draws this as a
+season-by-season trend, with the full study at `/crackdown`.
+
+## Repo layout
+
+```
+.
+├── pull.py                  network pull -> cache/
+├── build_*.py               possession + training tables
+├── xfg_model.py             leak-free xFG% model
+├── shot_value.py            shot value suite (xFG% + xFTA -> points)
+├── backfill_score_margin.py reconstruct in-game margin from play-by-play
+├── export_site_data.py      DB -> site JSON
+├── scripts/validate_export.py  the export gate
+├── config.py                seasons, feature lists, paths
+└── site/                    React + Vite front end
+    ├── src/                 views, charts, lib
+    ├── scripts/generate-static.mjs  prerender + OG cards + sitemap
+    └── public/              exported data JSON
+```
+
+## Stack
+
+- **Data and ML:** Python, pandas, SQLite, LightGBM, nba_api, numpy
+- **Front end:** React, Vite, TypeScript, Tailwind, hand-built SVG charts, CSS
+  motion with reduced-motion fallbacks
+- **Build and deploy:** static prerender with satori OG cards, Vercel
+
+## Running it
+
+Data side (Python, from the repo root):
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Gate A — single game test
-python pull.py --game 0022300001
-python build_tables.py --game 0022300001
-python validate.py
-
-# View the dashboard
-streamlit run dashboard/app.py
+pip install -r requirements.txt   # nba_api, pandas, lightgbm, ...
+python pull.py                    # fetch raw data to cache/ (network)
+python shot_value.py              # train xFG%, build the shot-value tables
+python export_site_data.py        # write site/public/*.json
+python scripts/validate_export.py # gate
 ```
 
-## Pipeline
+Site (from `site/`):
 
+```bash
+cd site
+npm install
+npm run dev          # local dev server
+npm run build        # production build
 ```
-pull.py          →  network pull only, writes cache/
-build_tables.py  →  builds xfta.db from cache (no network)
-validate.py      →  5 automated checks, prints report
-```
 
-### Gates (mandatory)
+## Credits
 
-1. **Gate A**: run on game `0022300001` only. Stop and review validation + training_fga rows.
-2. **Gate B**: after approval, run one week (~50 games).
-3. **Gate C**: after approval, run full 3 seasons (2022-23 through 2024-25).
-
-## Data sources
-
-- **PlayByPlayV3** — play-by-play events (shot→foul→FT linking)
-- **shotchartdetail** — shot coordinates, zones, distance, action type
-- **commonplayerinfo** — player height, position
-- **LeagueDashPlayerStats** — prior-season FTr
-- **LeagueDashPtStats (Drives)** — prior-season drive rate
-- **LeagueGameFinder** — game list per season
-
-## Tables
-
-See `SCHEMA.md` for full column documentation.
-
-| Table | Rows | Description |
-|-------|------|-------------|
-| games | ~3,690 | One per regular season game |
-| shots | ~600k | One per FGA with spatial features |
-| shot_outcomes | ~600k | One per FGA with foul/FT target |
-| player_season | ~1,500 | One per player per season |
-| training_fga | ~600k | Joined superset for modeling |
-
-## Dashboard
-
-`streamlit run dashboard/app.py` — four tabs:
-
-1. **Raw Tables** — database explorer with SQL query box
-2. **Leaderboard** — FTAOE rankings with filters
-3. **Shot Chart** — player shot charts and foul rate by zone
-4. **Calibration** — model diagnostics (Phase 2)
-
-## Feature list
-
-**Context-only (headline model):** shot_distance, shot_zone_basic, shot_zone_area,
-action_type, shot_type, period, seconds_remaining_in_period, score_margin, in_bonus,
-home_or_away, shooter_height, shooter_position
-
-**Carried (future YoY model):** prior_season_ftr, prior_season_drive_rate
-
-**Target:** fta_from_shot (0/1/2/3)
-
-Feature lists live in `config.py` — never hardcoded in the pipeline.
-
-## NBA API notes
-
-The NBA stats API (`stats.nba.com`) has become increasingly restrictive. If you
-encounter timeouts:
-- The pipeline uses exponential backoff retry (3 attempts)
-- Rate limiting is enforced (0.6s between calls)
-- All data is cached — re-running skips already-cached items
-- Run during off-peak hours for better reliability
+Built by Kevin Krajnc. Data from the NBA stats API. Shooting fouls only;
+descriptive, not a referee-bias claim. See `/methodology` on the live site.

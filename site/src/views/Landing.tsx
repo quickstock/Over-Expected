@@ -1,129 +1,152 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useData, usePlayerChunk } from "../data";
-import type { LeaderboardRow } from "../types";
-import { int, lastName, ordinal, searchKey } from "../lib/format";
+import type { GameLine, ShotValueRow } from "../types";
+import { int, lastName } from "../lib/format";
 import { Delta } from "../components/Delta";
 import { useTitle } from "../lib/useTitle";
 import SegmentedControl from "../components/SegmentedControl";
 import GapArc from "../components/charts/GapArc";
 import Beeswarm from "../components/charts/Beeswarm";
+import RefStrip from "../components/charts/RefStrip";
+import TeamScatter from "../components/charts/TeamScatter";
 
-const POSITIONS = ["All", "Guard", "Forward", "Center"];
+const LEAGUE_FT = 0.77;
 
 function seasonShort(s: string) {
   return `'${s.slice(2, 4)}-${s.slice(5)}`;
 }
 
-/** Compact extreme-player profile used in "The largest gaps". */
-function ExtremeCard({
+type Lens = "value" | "making" | "fouls";
+
+/** A lens doorway: what it measures + the season's leader, into the board. */
+function LensCard({
+  lens,
+  season,
+  label,
+  desc,
   row,
-  tag,
+  metric,
+  count,
 }: {
-  row: LeaderboardRow;
-  tag: string;
+  lens: Lens;
+  season: string;
+  label: string;
+  desc: string;
+  row: ShotValueRow | undefined;
+  metric: number | undefined;
+  count: number;
 }) {
   return (
     <Link
-      to={`/player/${row.id}?season=${encodeURIComponent(row.season)}`}
-      className="group flex flex-col gap-1.5 border-t border-line pt-4 transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      to={`/leaderboard?lens=${lens}&season=${encodeURIComponent(season)}`}
+      className="group flex flex-col border-t border-line pt-4 transition-colors duration-150 hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       <span className="font-display text-[11px] font-medium uppercase tracking-wider text-ink-faint">
-        {tag}
+        {label}
       </span>
-      <span className="flex flex-wrap items-baseline gap-x-3">
-        <span className="font-display text-2xl font-semibold text-ink group-hover:underline group-hover:underline-offset-4">
-          {row.name}
+      <p className="mt-2 min-h-[3.5rem] text-sm leading-relaxed text-ink-soft">
+        {desc}
+      </p>
+      {row && metric !== undefined && (
+        <span className="mt-3 flex items-baseline justify-between gap-2 border-t border-line-soft pt-3">
+          <span className="min-w-0 truncate font-display text-[15px] font-semibold text-ink group-hover:underline group-hover:underline-offset-4">
+            {row.name}
+          </span>
+          <Delta per100={metric} className="text-lg" />
         </span>
-        <Delta per100={row.per100} className="text-2xl" />
-      </span>
-      <span className="font-mono tnum text-sm text-ink-soft">
-        per 100 · {ordinal(Math.floor(row.pct ?? 0))} %ile · {int(row.poss)}{" "}
-        poss
+      )}
+      <span className="mt-2 font-mono tnum text-xs text-ink-faint">
+        {int(count)} players →
       </span>
     </Link>
   );
 }
 
+function SectionHead({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-semibold tracking-tight text-ink text-balance sm:text-3xl">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-prose text-sm leading-relaxed text-ink-soft sm:text-base">
+        {children}
+      </p>
+    </div>
+  );
+}
+
 export default function Landing() {
   const data = useData();
-  useTitle("FTAOE: Free Throw Attempts Over Expected");
+  useTitle("Over Expected: NBA shot value");
   const seasons = data.meta.seasons;
   const latest = data.meta.defaultSeason;
   const qualify = data.meta.qualifyPossessions;
+  const [season, setSeason] = useState(latest);
 
-  const [swarmSeason, setSwarmSeason] = useState(latest);
-  const [swarmPos, setSwarmPos] = useState("All");
-  const [query, setQuery] = useState("");
-  const [found, setFound] = useState<LeaderboardRow | null>(null);
+  // Shot-value pool for the season (already sorted by points over expected).
+  const svPool = useMemo(() => data.shotValue?.[season] ?? [], [data.shotValue, season]);
+  const byValue = svPool[0];
+  const byMaking = useMemo(
+    () => [...svPool].sort((a, b) => b.fgPoe100 - a.fgPoe100)[0],
+    [svPool],
+  );
+  const byFouls = useMemo(
+    () => [...svPool].sort((a, b) => b.ftaoe100 - a.ftaoe100)[0],
+    [svPool],
+  );
 
-  const poolBySeason = useMemo(() => {
-    const m = new Map<string, LeaderboardRow[]>();
-    for (const s of seasons) {
-      m.set(
-        s,
-        data.leaderboard.filter((r) => r.season === s && r.poss >= qualify),
-      );
-    }
-    return m;
-  }, [data.leaderboard, seasons, qualify]);
-
-  const seasonPool = poolBySeason.get(swarmSeason)!;
+  // FTAOE distribution for the beeswarm.
   const swarmPool = useMemo(
     () =>
-      swarmPos === "All"
-        ? seasonPool
-        : seasonPool.filter((r) => r.pos === swarmPos),
-    [seasonPool, swarmPos],
+      data.leaderboard
+        .filter((r) => r.season === season && r.poss >= qualify)
+        .map((r) => ({ id: r.id, name: r.name, per100: r.per100 })),
+    [data.leaderboard, season, qualify],
   );
 
-  const suggestions = useMemo(() => {
-    const q = searchKey(query.trim());
-    if (q.length < 2) return [];
-    return seasonPool
-      .filter((r) => searchKey(r.name).includes(q))
-      .sort((a, b) => b.poss - a.poss)
-      .slice(0, 6);
-  }, [query, seasonPool]);
+  // The standout's season, drawn as a shot-value gap.
+  const chunk = usePlayerChunk(season);
+  const standout = byValue;
+  const standoutDetail =
+    chunk.status === "ready" && standout ? chunk.chunk[String(standout.id)] : undefined;
+  const valueGames = useMemo<GameLine[]>(() => {
+    const gs = standoutDetail?.games ?? [];
+    const ft = standout?.ftPct ?? LEAGUE_FT;
+    return gs.map((g) => [
+      (g[3] ?? 0) + g[0] * ft,
+      (g[4] ?? 0) + g[1] * LEAGUE_FT,
+      g[2],
+    ]);
+  }, [standoutDetail, standout]);
 
-  const heroPool = poolBySeason.get(latest)!;
-  const sorted = useMemo(
-    () => [...heroPool].sort((a, b) => b.per100 - a.per100),
-    [heroPool],
-  );
-  const top = sorted[0];
-  const bottom = sorted[sorted.length - 1];
-  const latestChunk = usePlayerChunk(latest);
-  const topDetail =
-    latestChunk.status === "ready"
-      ? latestChunk.chunk[String(top.id)]
-      : undefined;
-
-  const swarmMin = Math.min(...swarmPool.map((r) => r.per100));
-  const swarmMax = Math.max(...swarmPool.map((r) => r.per100));
+  const teams = data.teams?.[season] ?? [];
+  const refs = data.referees?.[season] ?? [];
 
   return (
     <div className="mx-auto max-w-4xl px-5 sm:px-8">
-      {/* hero: the statistic, not a player */}
+      {/* hero: the thesis + three lenses */}
       <section className="pt-14 sm:pt-20">
         <p className="font-mono tnum text-xs text-ink-faint">
-          FTAOE · {seasonShort(seasons[0])} to{" "}
-          {seasonShort(seasons[seasons.length - 1])} · shooting fouls only
+          {seasons[0]} to {seasons[seasons.length - 1]} ·{" "}
+          {int(data.meta.nPossessions)} possessions
         </p>
-        <h1 className="mt-4 font-display text-5xl font-bold leading-[1.02] tracking-tight text-ink sm:text-7xl">
-          The free-throw gap.
+        <h1 className="mt-4 font-display text-5xl font-bold leading-[1.02] tracking-tight text-balance text-ink sm:text-7xl">
+          Every shot, over expected.
         </h1>
         <p className="mt-5 max-w-prose text-base leading-relaxed text-ink-soft sm:text-lg">
-          Some players live at the line; some never get there. FTAOE measures
-          the gap: shooting-foul free throws drawn per 100 possessions,
-          against the league-average rate. In {swarmSeason} it ran from{" "}
-          <Delta per100={swarmMin} className="text-base sm:text-lg" /> to{" "}
-          <Delta per100={swarmMax} className="text-base sm:text-lg" /> per
-          100.
+          What a shot is worth: the make, and the fouls it draws, measured
+          against the league. Three reads on the same number, for every player,
+          team, and official.
         </p>
 
-        {/* the league, adjustable */}
-        <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3">
           <SegmentedControl
             ariaLabel="Season"
             options={seasons.map((s) => ({
@@ -131,72 +154,44 @@ export default function Landing() {
               label: s,
               shortLabel: seasonShort(s),
             }))}
-            value={swarmSeason}
-            onChange={(s) => {
-              setSwarmSeason(s);
-              setFound(null);
-              setQuery("");
-            }}
+            value={season}
+            onChange={setSeason}
           />
-          <SegmentedControl
-            ariaLabel="Position"
-            options={POSITIONS.map((p) => ({
-              value: p,
-              label: p === "All" ? "All" : p.slice(0, 1),
-            }))}
-            value={swarmPos}
-            onChange={setSwarmPos}
-          />
-          <div className="relative">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setFound(null);
-              }}
-              placeholder="Find a player"
-              aria-label="Find a player"
-              className="w-40 rounded-md border border-line bg-paper px-3 py-1.5 font-display text-[13px] text-ink placeholder:text-ink-faint focus:border-ink-faint focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ink"
-            />
-            {suggestions.length > 0 && !found && (
-              <ul className="absolute z-20 mt-1 w-56 overflow-hidden rounded-md border border-line bg-paper shadow-sm">
-                {suggestions.map((r) => (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFound(r);
-                        setQuery(r.name);
-                      }}
-                      className="flex w-full items-baseline justify-between px-3 py-2 text-left font-display text-[13px] text-ink transition-colors duration-100 hover:bg-wash focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
-                    >
-                      <span>{r.name}</span>
-                      <Delta per100={r.per100} className="text-xs" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <span className="font-mono tnum text-xs text-ink-faint">
+            {int(svPool.length)} qualified players
+          </span>
         </div>
 
-        <Beeswarm
-          className="mt-6"
-          players={swarmPool.map((r) => ({
-            id: r.id,
-            name: r.name,
-            per100: r.per100,
-          }))}
-          season={swarmSeason}
-          highlightIds={found ? [found.id] : []}
-        />
-        <p className="mt-2 text-xs text-ink-faint">
-          {int(swarmPool.length)} players with ≥ {int(qualify)} possessions,{" "}
-          {swarmSeason}
-          {swarmPos !== "All" ? `, ${swarmPos.toLowerCase()}s` : ""}. Every
-          dot is a player. Tap one.
-        </p>
+        {/* three-lens triptych */}
+        <div className="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-3">
+          <LensCard
+            lens="value"
+            season={season}
+            label="Shot value"
+            desc="The points a player adds over expected: shots made above their difficulty, plus the free throws he draws."
+            row={byValue}
+            metric={byValue?.poe100}
+            count={svPool.length}
+          />
+          <LensCard
+            lens="making"
+            season={season}
+            label="Shot-making"
+            desc="Converting better, or worse, than the difficulty of the looks taken. Field goals only."
+            row={byMaking}
+            metric={byMaking?.fgPoe100}
+            count={svPool.length}
+          />
+          <LensCard
+            lens="fouls"
+            season={season}
+            label="Foul-drawing"
+            desc="Shooting-foul free throws drawn above the league's rate. The original FTAOE."
+            row={byFouls}
+            metric={byFouls?.ftaoe100}
+            count={svPool.length}
+          />
+        </div>
 
         <div className="mt-10 flex flex-wrap items-center gap-5">
           <Link
@@ -211,85 +206,124 @@ export default function Landing() {
           >
             How it's measured →
           </Link>
+        </div>
+      </section>
+
+      {/* the league, every player */}
+      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
+        <SectionHead title={`The league, every player, ${season}`}>
+          Foul-drawing per 100 possessions, one dot per qualified player. The
+          shot value, shot-making, and foul-drawing boards all sort this same
+          pool a different way.
+        </SectionHead>
+        <Beeswarm
+          className="mt-6"
+          players={swarmPool}
+          season={season}
+        />
+        <p className="mt-3 text-xs text-ink-faint">
+          {int(swarmPool.length)} players with ≥ {int(qualify)} possessions. Tap
+          a dot for the player, or{" "}
+          <Link to="/leaderboard" className="underline underline-offset-2 transition-colors duration-150 hover:text-ink">
+            open the full board
+          </Link>
+          .
+        </p>
+      </section>
+
+      {/* a player, drawn */}
+      {standout && (
+        <section className="mt-20 border-t border-line pt-12 sm:mt-28">
+          <SectionHead title={`${standout.name}, drawn`}>
+            Every player gets the season as a gap, his form game by game, his
+            shot chart, and his career, on all three lenses.
+          </SectionHead>
+          <div className="mt-6">
+            {standoutDetail ? (
+              <GapArc games={valueGames} height={250} />
+            ) : (
+              <div className="h-[250px] animate-pulse rounded bg-wash" aria-busy="true" />
+            )}
+            <p className="mt-2 text-xs text-ink-faint">
+              Cumulative points generated vs an average shot diet, game by game,{" "}
+              {season}.{" "}
+              <Link
+                to={`/player/${standout.id}?season=${encodeURIComponent(season)}&lens=value`}
+                className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
+              >
+                {lastName(standout.name)}'s page →
+              </Link>
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* teams */}
+      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
+        <SectionHead title={`Teams: drawn vs conceded, ${season}`}>
+          Shooting fouls each team draws against what it concedes, per 100
+          possessions over expected. The context a player's number rides on.
+        </SectionHead>
+        <div className="mt-6">
+          <TeamScatter
+            teams={teams}
+            off={(t) => t.drawn}
+            def={(t) => t.conceded}
+            xAxis="draws more →"
+            defLabel="Conceded"
+          />
+        </div>
+        <p className="mt-2">
+          <Link to="/league" className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft">
+            League context →
+          </Link>
+        </p>
+      </section>
+
+      {/* officials */}
+      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
+        <SectionHead title={`Officials, measured, ${season}`}>
+          Each dot is one official (minimum 20 games): the shooting-foul rate in
+          games they worked, against the season's league rate. Descriptive and
+          league-level, never crossed with players.
+        </SectionHead>
+        <div className="mt-6">
+          <RefStrip refs={refs} />
+        </div>
+        <p className="mt-2">
+          <Link to={`/referees?season=${encodeURIComponent(season)}`} className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft">
+            Every official →
+          </Link>
+        </p>
+      </section>
+
+      {/* how it's measured */}
+      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
+        <SectionHead title="What this measures, and what it doesn't">
+          Leak-free models, anchored season by season: a shot's expected value
+          never comes from a model that saw it. The number blends playstyle,
+          skill, and officiating. It does not isolate them, and it does not
+          prove referee bias.
+        </SectionHead>
+        <div className="mt-5 flex flex-wrap items-center gap-5">
+          <Link
+            to="/methodology"
+            className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft"
+          >
+            Full methodology →
+          </Link>
+          <Link
+            to="/data"
+            className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft"
+          >
+            Get the data →
+          </Link>
           <Link
             to="/crackdown"
-            className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="font-display text-sm font-medium text-ink underline underline-offset-4 transition-colors duration-150 hover:text-ink-soft"
           >
-            The 2021-22 crackdown, measured →
+            The 2021-22 crackdown →
           </Link>
-        </div>
-      </section>
-
-      {/* explainer */}
-      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          What this measures
-        </h2>
-        <div className="mt-6 max-w-prose space-y-4 text-[15px] leading-relaxed text-ink sm:text-base">
-          <p>
-            FTAOE (free throw attempts over expected) measures how many
-            shooting-foul free throws a player draws per 100 possessions,
-            compared with the league-average rate (
-            <span className="font-mono tnum">
-              {data.meta.leagueRatePer100.toFixed(1)}
-            </span>{" "}
-            per 100 across {int(seasons.length)} seasons).
-          </p>
-          <p>
-            <strong className="font-semibold">What counts:</strong> shooting
-            fouls only: and-1s and fouled misses. Free throws from the
-            bonus, technicals, flagrants, and off-ball fouls are excluded.
-          </p>
-          <p>
-            <strong className="font-semibold">Why per possession:</strong> a
-            fouled miss isn't a charged field-goal attempt and has no shot
-            location, so any per-shot rate quietly drops the exact plays this
-            stat is about. The possession is the honest unit.
-          </p>
-          <p>
-            <strong className="font-semibold">
-              What it does and doesn't say:
-            </strong>{" "}
-            the number blends playstyle, contact-seeking skill, and
-            officiating. It does not isolate any of them, and it does not
-            prove anything about referees; that stays an open question.{" "}
-            <Link
-              to="/methodology"
-              className="underline underline-offset-2 transition-colors duration-150 hover:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-            >
-              Full methodology
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
-
-      {/* the largest gaps */}
-      <section className="mt-20 border-t border-line pt-12 sm:mt-28">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          The largest gaps, {latest}
-        </h2>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2">
-          <ExtremeCard row={top} tag="most above the league rate" />
-          <ExtremeCard row={bottom} tag="most below the league rate" />
-        </div>
-        <div className="mt-10">
-          {topDetail ? (
-            <GapArc games={topDetail.games} height={250} />
-          ) : (
-            <div className="h-[250px] animate-pulse rounded bg-wash" aria-busy="true" />
-          )}
-          <p className="mt-2 text-xs text-ink-faint">
-            {top.name}, {latest}: cumulative shooting-foul free throws vs the
-            league-average pace: {int(top.fta)} attempts where the average
-            player's possessions would produce {top.xfta.toFixed(1)}.{" "}
-            <Link
-              to={`/player/${top.id}?season=${encodeURIComponent(latest)}`}
-              className="underline underline-offset-2 transition-colors duration-150 hover:text-ink"
-            >
-              {lastName(top.name)}'s page →
-            </Link>
-          </p>
         </div>
       </section>
     </div>

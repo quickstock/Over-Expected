@@ -143,7 +143,7 @@ export default function Referee() {
       : seasons[seasons.length - 1] ?? null;
   const detail = prof && season ? prof.detail[season] : undefined;
 
-  useTitle(prof ? `${prof.name} · FTAOE` : "FTAOE");
+  useTitle(prof ? `${prof.name} · Over Expected` : "Over Expected");
 
   if (!prof || !season || !detail) return <NotFound />;
 
@@ -240,7 +240,7 @@ export default function Referee() {
         shooting fouls sent players to the line{" "}
         <span className="font-mono tnum">{detail.per100.toFixed(1)}</span> times
         per 100 possessions, against a league rate of{" "}
-        <span className="font-mono tnum">{detail.lg.toFixed(1)}</span> — a{" "}
+        <span className="font-mono tnum">{detail.lg.toFixed(1)}</span>, a{" "}
         <span className="font-mono tnum">{signed(diff, 1)}</span> gap.
       </p>
 
@@ -294,7 +294,7 @@ export default function Referee() {
       <p className="mt-14 border-t border-line pt-6 max-w-prose text-xs leading-relaxed text-ink-faint">
         Descriptive, league-level only. Crew tendency is one of the context
         features the expected-FTA model already adjusts for, and assignments
-        are not random — workloads, slates and the games an official is given
+        are not random: workloads, slates and the games an official is given
         all differ. This site deliberately does not publish player-by-official
         splits.{" "}
         <Link
