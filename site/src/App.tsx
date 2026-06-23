@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import CommandK from "./components/CommandK";
@@ -60,6 +61,7 @@ export default function App() {
       </main>
       <Footer />
       <CommandK open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <Analytics />
     </div>
   );
 }

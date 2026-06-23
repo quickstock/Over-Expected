@@ -1,31 +1,37 @@
 {
-  "hash": "39dd68fc",
+  "hash": "8cdf1a73",
   "configHash": "dfd33b3b",
-  "lockfileHash": "de859752",
-  "browserHash": "fecc3cf9",
+  "lockfileHash": "77a9c1cf",
+  "browserHash": "cf662aa8",
   "optimized": {
     "react/jsx-dev-runtime": {
       "src": "../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "6ce1c1ab",
+      "fileHash": "dc040486",
       "needsInterop": true
     },
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "f4334631",
+      "fileHash": "d8e3ea04",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "857fed65",
+      "fileHash": "0106660d",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.mjs",
       "file": "react-router-dom.js",
-      "fileHash": "77fe7341",
+      "fileHash": "c2d6fe99",
+      "needsInterop": false
+    },
+    "@vercel/analytics/react": {
+      "src": "../../node_modules/@vercel/analytics/dist/react/index.mjs",
+      "file": "@vercel_analytics_react.js",
+      "fileHash": "c040e7fd",
       "needsInterop": false
     }
   },
