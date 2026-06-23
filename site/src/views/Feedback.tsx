@@ -40,7 +40,7 @@ export default function Feedback() {
           <input
             type="hidden"
             name="_next"
-            value="https://over-expected.vercel.app/feedback?sent=1"
+            value="https://overexpected.com/feedback?sent=1"
           />
           <input
             type="text"

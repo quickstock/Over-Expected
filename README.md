@@ -4,7 +4,7 @@ An end-to-end NBA shot-value system. It ingests six seasons of play-by-play,
 trains leak-free models for what a shot is worth, and ships the results as a
 data-journalism site.
 
-**Live: [over-expected.vercel.app](https://over-expected.vercel.app)**
+**Live: [overexpected.com](https://overexpected.com)**
 
 The core idea is a single question asked three ways: how much does a player add
 over what an average player would do with the same looks?

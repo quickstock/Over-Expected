@@ -1,6 +1,6 @@
 # Over Expected: measuring what an NBA shot is really worth
 
-**Live: [over-expected.vercel.app](https://over-expected.vercel.app)**
+**Live: [overexpected.com](https://overexpected.com)**
 
 A solo, end-to-end NBA analytics product: a data pipeline over six seasons of
 play-by-play, leak-free models for shot value, an original public stat, and a
@@ -113,6 +113,6 @@ shows a policy aimed at a handful of players, not the game.
 
 ## Links
 
-- Live site: [over-expected.vercel.app](https://over-expected.vercel.app)
-- Methodology: [over-expected.vercel.app/methodology](https://over-expected.vercel.app/methodology)
-- The crackdown study: [over-expected.vercel.app/crackdown](https://over-expected.vercel.app/crackdown)
+- Live site: [overexpected.com](https://overexpected.com)
+- Methodology: [overexpected.com/methodology](https://overexpected.com/methodology)
+- The crackdown study: [overexpected.com/crackdown](https://overexpected.com/crackdown)

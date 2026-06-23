@@ -23,7 +23,7 @@ const DIST = join(ROOT, "dist");
 const baseArg = process.argv.indexOf("--base");
 const envBase = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : "https://over-expected.vercel.app";
+  : "https://overexpected.com";
 const BASE = (baseArg > -1 ? process.argv[baseArg + 1] : envBase).replace(/\/$/, "");
 
 const data = JSON.parse(readFileSync(join(ROOT, "public", "data.json"), "utf8"));
