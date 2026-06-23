@@ -164,23 +164,23 @@ function genericCard() {
         backgroundColor: PAPER, padding: 72, justifyContent: "space-between",
       },
       children: [
-        { type: "div", props: { style: { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: 26, color: FAINT }, children: `${seasons[0]} to ${seasons[seasons.length - 1]} · shooting fouls only` } },
+        { type: "div", props: { style: { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: 26, color: FAINT }, children: `${seasons[0]} to ${seasons[seasons.length - 1]} · NBA shot value` } },
         {
           type: "div",
           props: {
             style: { display: "flex", flexDirection: "column", gap: 14 },
             children: [
-              { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 110, color: INK, lineHeight: 1.02 }, children: "The free-throw gap." } },
+              { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 104, color: INK, lineHeight: 1.02 }, children: "Every shot, over expected." } },
               { type: "div", props: { style: { display: "flex", fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: 30, color: SOFT }, children: [
-                { type: "span", props: { style: { color: COOL }, children: signed(-15.1) } },
+                { type: "span", props: { style: { color: COOL }, children: signed(-30) } },
                 { type: "span", props: { children: " to " } },
-                { type: "span", props: { style: { color: WARM }, children: signed(25.6) } },
-                { type: "span", props: { children: " free throws per 100 possessions" } },
+                { type: "span", props: { style: { color: WARM }, children: signed(30) } },
+                { type: "span", props: { children: " points over expected / 100" } },
               ] } },
             ],
           },
         },
-        { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 30, color: INK }, children: "Over Expected — NBA shot value" } },
+        { type: "div", props: { style: { fontFamily: "Bricolage Grotesque", fontSize: 30, color: INK }, children: "Over Expected · overexpected.com" } },
       ],
     },
   };
@@ -245,7 +245,7 @@ for (const row of latestByPlayer.values()) {
   await renderPng(card(row), join(DIST, "og", `p${row.id}.png`));
   shell({
     title: `${row.name} · Over Expected`,
-    description: `${row.name}, ${row.season}: ${signed(row.per100)} shooting-foul free throws per 100 possessions vs the league-average rate (${ordinal(Math.floor(row.pct))} percentile, ${row.fta} FTA vs ${row.xfta.toFixed(1)} expected).`,
+    description: `${row.name}, ${row.season}: ${signed(row.per100)} shooting-foul points over expected / 100 vs the league-average rate (${ordinal(Math.floor(row.pct))} percentile, ${row.fta} FTA vs ${row.xfta.toFixed(1)} expected).`,
     path: `/player/${row.id}`,
     image: `p${row.id}.png`,
   });
