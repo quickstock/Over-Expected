@@ -1,7 +1,11 @@
 """Train v4 possession-grain xFTA — leak-clean context model, anchored.
 
-Extends v3 (period, seconds_remaining_in_period, score_margin, in_bonus)
-with three context features that are external to the player:
+Base features: period, seconds_remaining_in_period, score_margin
+(at possession START — the terminal-event margin stored in tpv2 contains
+the possession's own points, including the target FTs), and q4_or_ot
+(tpv2's misnamed "in_bonus": V3 PBP has no bonus state, so it is a
+period >= 4 indicator). Extended with three context features that are
+external to the player:
 
   - offense_is_home      from game_meta (liveData boxscore)
   - opp_rate_logo        opponent (defensive team) shooting-foul rate
@@ -40,8 +44,9 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 BASE_FEATURES = [
     "period",
     "seconds_remaining_in_period",
-    "score_margin",
-    "in_bonus",
+    "score_margin",   # margin at possession START (see load) — pre-outcome
+    "q4_or_ot",       # tpv2's "in_bonus" column is actually period >= 4;
+                      # named honestly here (V3 PBP carries no bonus state)
 ]
 CONTEXT_FEATURES = ["offense_is_home", "opp_rate_logo", "crew_rate_logo"]
 FEATURES = BASE_FEATURES + CONTEXT_FEATURES
@@ -96,7 +101,8 @@ def load() -> pd.DataFrame:
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql(
         """SELECT t.game_id, t.possession_number, t.season, t.sfta,
-                  t.period, t.seconds_remaining_in_period, t.score_margin,
+                  t.period, t.seconds_remaining_in_period,
+                  t.score_margin AS term_margin,
                   t.in_bonus,
                   p.offense_team_id,
                   (p.finisher_player_id IS NOT NULL) AS has_finisher,
@@ -116,11 +122,20 @@ def load() -> pd.DataFrame:
         f"({missing_meta:,} without game_meta; context imputed for those)"
     )
 
-    df["score_margin"] = df["score_margin"].fillna(0.0)
+    # score_margin at possession START. tpv2's stored margin is stamped
+    # on the possession's terminal event, which for a foul possession is
+    # the last free throw — the very FTs the model predicts. Carrying the
+    # last known margin forward and shifting one possession back gives
+    # the margin the offense actually faced, with no outcome inside it.
+    df = df.sort_values(["game_id", "possession_number"], ignore_index=True)
+    run = df.groupby("game_id", sort=False)["term_margin"].ffill()
+    df["score_margin"] = (
+        run.groupby(df["game_id"], sort=False).shift(1).fillna(0.0)
+    )
     df["seconds_remaining_in_period"] = df[
         "seconds_remaining_in_period"
     ].fillna(0.0)
-    df["in_bonus"] = df["in_bonus"].fillna(0).astype(int)
+    df["q4_or_ot"] = df["in_bonus"].fillna(0).astype(int)
 
     has_meta = df["home_team_id"].notna()
     df["offense_is_home"] = np.where(

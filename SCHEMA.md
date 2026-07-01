@@ -8,8 +8,9 @@ outputs that feed the site.
 
 ```
 pull.py                       network pull -> cache/ (parquet)
+build_tables.py               -> games, shots, training_fga, player_season
 build_possessions_v3.py       -> possessions  (per-possession shooting-foul target)
-build_leaderboard.py          -> training_fga, shots-derived FGA features
+build_training_possessions_v2.py -> training_possessions_v2 (possession features)
 backfill_score_margin.py      -> fills shots.score_margin from play-by-play
 train_possession_v4_context.py-> predictions_poss_clean  (expected FTA per possession)
 build_possession_leaderboard_clean.py -> player_season_xfta_poss_lb_clean (FTAOE board)
@@ -45,7 +46,8 @@ One row per possession.
 `game_id, period, possession_number, start_time, end_time, offense_team_id,
 n_events, sfta, finisher_player_id, excluded_ft_count, contamination_count,
 ft_and1, ft_sf2, ft_sf3`. `sfta` is the shooting-foul free throw target (almost
-always 0, occasionally 2 or 3). `ft_and1 / ft_sf2 / ft_sf3` itemize free throws
+always 0; 1-3 on a foul trip, rarely 4-5 when offensive rebounds produce two
+foul trips in one possession). `ft_and1 / ft_sf2 / ft_sf3` itemize free throws
 by trip type and sum to `sfta`. The finisher is the player charged with the
 possession's shooting-foul free throws.
 

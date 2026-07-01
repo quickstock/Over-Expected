@@ -3,22 +3,24 @@
 leaderboards.
 
 Shot quality (look value, shooter-agnostic):
-    xPoints = xFG% * (2 or 3) + xFTA * league_FT%   (league_FT% = 0.77)
+    xPoints = xFG% * (2 or 3) + xFTA * league_FT%
+    (league_FT% = the season's actual league free-throw make rate)
 
 The headline "points over expected" credits both halves symmetrically — actual
 conversion above the look on BOTH the field-goal side and the free-throw side:
 
   shot-making over expected = actual FG% - xFG%            (FG conversion skill)
   shot-selection value      = mean xPoints of looks taken  (look quality)
-  combined POE / 100 poss   = (actual FG pts - expected FG pts)        # FG side
-                              + (actual FTA * own FT% - xFTA * 0.77)   # FT side
+  combined POE / 100 poss   = (actual FG pts - expected FG pts)              # FG side
+                              + (actual FTA * own FT% - xFTA * league FT%)   # FT side
 
 The FT side is the option-B fix for the earlier asymmetry: the old version
-valued both actual and expected FTAs at the flat league 0.77, which cancels
+valued both actual and expected FTAs at a flat league rate, which cancels
 out free-throw shooting skill while the FG side fully credited it. Now each
 player's drawn free throws are valued at HIS season FT% (player_season_ft),
 so a 65% Giannis no longer gets league-average credit for trips a 90% shooter
-banks. Expected FTAs stay at league 0.77 — the league-neutral baseline.
+banks. Expected FTAs are valued at the season's actual league FT% — the
+league-neutral baseline.
 (Approximation: season FT% covers all foul types; actual_fta here is shooting
 fouls only. A player's FT% barely varies by foul type, so this is fine.)
 
@@ -41,7 +43,6 @@ import pandas as pd
 from config import DB_PATH
 from xfg_model import engineer, make_clf, FEATURES
 
-LEAGUE_FT = 0.77        # league free-throw make rate (spec constant)
 QUALIFY_POSS = 300      # same qualification as the xFTA board
 LEADERBOARD_SEASON = "2024-25"   # latest complete season for the top-25
 
@@ -89,12 +90,20 @@ def main() -> None:
     print("season cross-fit xFG%:")
     df["xfg"] = cross_fit_xfg(df)
 
-    # Sanity: cross-fit mean xFG% should track each season's actual FG%.
+    # SEASON ANCHORING, mirroring the xFTA side: a model trained on the
+    # other five seasons inherits their league-wide make rate, so each
+    # held-out season's mean xFG% lands offset from its own actual FG%
+    # (the 2021-22 shooting dip alone was worth -1.7 FG pts over
+    # expected per 100 league-wide). Scale each season's xFG so its mean
+    # equals that season's actual FG% — league sits at zero by
+    # construction, same invariant the FTAOE board guarantees.
     chk = df.groupby("season").agg(
         actual=("shot_made", "mean"), xfg=("xfg", "mean"), n=("shot_made", "size"))
-    print("\nper-season calibration (mean xFG% vs actual FG%):")
-    print(chk.assign(gap=(chk["actual"] - chk["xfg"]))
-          .round({"actual": 4, "xfg": 4, "gap": 4}).to_string())
+    anchors = chk["actual"] / chk["xfg"]
+    df["xfg"] = df["xfg"] * df["season"].map(anchors)
+    print("\nper-season anchoring (mean xFG% scaled to actual FG%):")
+    print(chk.assign(anchor=anchors).round(
+        {"actual": 4, "xfg": 4, "anchor": 4}).to_string())
 
     pts = np.where(df["shot_type"].str.contains("3"), 3, 2)
     df["exp_fg_pts"] = df["xfg"] * pts
@@ -149,21 +158,29 @@ def main() -> None:
 
     # Each player's own season FT% for the FT-conversion credit (option B).
     ft = pd.read_sql(
-        "SELECT player_id, season, ft_pct FROM player_season_ft", conn)
+        "SELECT player_id, season, ftm, fta, ft_pct FROM player_season_ft", conn)
     ft["player_id"] = ft["player_id"].astype(int)
-    sv = sv.merge(ft, on=["player_id", "season"], how="left")
+    # The league baseline is each season's ACTUAL league FT% (FTA-weighted),
+    # not a flat constant — 0.77 vs the true ~0.78 was handing the whole
+    # league ~+0.1 to +0.3 free FT points per 100.
+    league_ft = ft.groupby("season").apply(lambda g: g["ftm"].sum() / g["fta"].sum())
+    print("\nseason league FT% baseline:")
+    print(league_ft.round(4).to_string())
+    sv = sv.merge(ft[["player_id", "season", "ft_pct"]],
+                  on=["player_id", "season"], how="left")
+    sv["league_ft"] = sv["season"].map(league_ft)
     # No FT% on record (never shot a free throw) -> fall back to league rate.
-    sv["ft_pct"] = sv["ft_pct"].where(sv["ft_pct"] > 0, LEAGUE_FT)
+    sv["ft_pct"] = sv["ft_pct"].where(sv["ft_pct"] > 0, sv["league_ft"])
 
     # Metrics.
     sv["fg_pct"] = sv["fgm"] / sv["fga"]
     sv["xfg_pct"] = sv["exp_makes"] / sv["fga"]
     sv["shot_making_oe"] = (sv["fg_pct"] - sv["xfg_pct"]) * 100          # pp
-    sv["xpoints_per_shot"] = (sv["exp_fg_pts"] + sv["xfta_total"] * LEAGUE_FT) / sv["fga"]
+    sv["xpoints_per_shot"] = (sv["exp_fg_pts"] + sv["xfta_total"] * sv["league_ft"]) / sv["fga"]
     sv["fg_pts_oe"] = sv["act_fg_pts"] - sv["exp_fg_pts"]
     # FT points over expected: drawn FTs banked at the player's own FT%,
-    # expected FTs valued at the league-neutral baseline.
-    sv["ft_pts_oe"] = sv["actual_fta"] * sv["ft_pct"] - sv["xfta_total"] * LEAGUE_FT
+    # expected FTs valued at the season's league-average FT%.
+    sv["ft_pts_oe"] = sv["actual_fta"] * sv["ft_pct"] - sv["xfta_total"] * sv["league_ft"]
     sv["points_oe"] = sv["fg_pts_oe"] + sv["ft_pts_oe"]
     sv["fg_pts_oe_per100"] = sv["fg_pts_oe"] / sv["possessions"] * 100
     sv["ft_pts_oe_per100"] = sv["ft_pts_oe"] / sv["possessions"] * 100

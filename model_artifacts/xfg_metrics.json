@@ -4,15 +4,15 @@
   "n_holdout": 217738,
   "holdout_make_rate": 0.4675,
   "raw": {
-    "brier": 0.22126,
-    "logloss": 0.62972,
-    "auc": 0.6707,
-    "ece": 0.00789
+    "brier": 0.22427,
+    "logloss": 0.63727,
+    "auc": 0.6578,
+    "ece": 0.00959
   },
   "calibrated": {
-    "brier": 0.22126,
-    "logloss": 0.63027,
-    "auc": 0.67058,
-    "ece": 0.00395
+    "brier": 0.22422,
+    "logloss": 0.63836,
+    "auc": 0.65762,
+    "ece": 0.00421
   }
 }

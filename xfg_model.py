@@ -72,16 +72,16 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
     # corner. Captures the corner-vs-central effect distance alone misses.
     df["angle_deg"] = np.degrees(np.arctan2(df["shot_x"].abs(), df["shot_y"]))
 
-    # Clean running |score differential|: raw score_margin is only stamped
-    # on scoring events, so treat 0 as missing and carry the last real
-    # reading forward within each game (chronological order). |.| is
-    # perspective-free (score_margin is signed by the shooting team).
-    df = df.sort_values(
-        ["game_id", "period", "seconds_remaining_in_period"],
-        ascending=[True, True, False],
-    )
-    absm = df["score_margin"].abs().where(df["score_margin"] != 0)
-    df["run_margin"] = absm.groupby(df["game_id"], sort=False).ffill().fillna(0)
+    # Pre-shot |score differential|. score_margin (backfilled, complete)
+    # is stamped AFTER the event, so a made shot's own points sit inside
+    # its margin — using it raw leaks the target into the feature
+    # (holdout AUC 0.671 leaky vs 0.658 clean). Subtract the shot's own
+    # points to recover the margin the shooter actually saw. Margin is
+    # signed by the shooting team; |.| is perspective-free, and 0 is a
+    # genuine tie post-backfill.
+    pts = np.where(df["shot_type"].str.contains("3"), 3, 2)
+    pre = df["score_margin"].fillna(0) - pts * df["shot_made"]
+    df["run_margin"] = pre.abs()
 
     for c in CAT_FEATURES:
         df[c] = df[c].astype("category")

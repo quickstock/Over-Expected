@@ -13,13 +13,16 @@ conn = sqlite3.connect(DB_PATH)
 # Per-player-season aggregates from OOF predictions
 ps = pd.read_sql("""
     SELECT
-        player_id,
-        season,
-        SUM(sfta) AS actual_fta,
-        SUM(xfta) AS predicted_fta,
+        p.finisher_player_id AS player_id,
+        c.season,
+        SUM(c.sfta) AS actual_fta,
+        SUM(c.xfta) AS predicted_fta,
         COUNT(*) AS n_poss
-    FROM predictions_poss
-    GROUP BY player_id, season
+    FROM predictions_poss_clean c
+    JOIN possessions p
+      ON p.game_id = c.game_id AND p.possession_number = c.possession_number
+    WHERE p.finisher_player_id IS NOT NULL
+    GROUP BY p.finisher_player_id, c.season
     HAVING n_poss >= 100
 """, conn)
 
