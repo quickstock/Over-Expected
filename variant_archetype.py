@@ -347,6 +347,24 @@ def main() -> None:
         json.dump(results, f, indent=2)
     print(f"\nwrote {out}")
 
+    # Per-arm boards, merged, for the paper's scatter figure.
+    merged = boards["headline"][
+        ["finisher_player_id", "season", "player_name", "possessions",
+         "actual_fta", "ftaoe", "ftaoe_per_100"]
+    ].rename(columns={"ftaoe": "ftaoe_headline",
+                      "ftaoe_per_100": "ftaoe_per_100_headline"})
+    for name in ("archetype", "identity"):
+        merged = merged.merge(
+            boards[name][["finisher_player_id", "season", "ftaoe",
+                          "ftaoe_per_100"]].rename(
+                columns={"ftaoe": f"ftaoe_{name}",
+                         "ftaoe_per_100": f"ftaoe_per_100_{name}"}),
+            on=["finisher_player_id", "season"], how="inner",
+        )
+    csv_out = os.path.join(MODEL_DIR, "variant_archetype_boards.csv")
+    merged.to_csv(csv_out, index=False)
+    print(f"wrote {csv_out}  ({len(merged):,} qualified player-seasons)")
+
 
 if __name__ == "__main__":
     main()
