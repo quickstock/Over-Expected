@@ -1,0 +1,441 @@
+{
+  "question": "Does handing the context-only FTAOE model the finisher's identity (height, position, prior-season FTr) change the leaderboard?",
+  "design": "Three Poisson GLM arms on identical 6-fold season cross-fit folds with identical per-season anchoring on the finisher universe. Prior-season FTr mean-imputed from training seasons only, with an explicit missingness indicator.",
+  "qualifyPossessions": 300,
+  "arms": {
+    "headline": {
+      "nFeatures": 7,
+      "features": [
+        "period",
+        "seconds_remaining_in_period",
+        "score_margin",
+        "q4_or_ot",
+        "offense_is_home",
+        "opp_rate_logo",
+        "crew_rate_logo"
+      ],
+      "foldLift": [
+        {
+          "season": "2020-21",
+          "liftPct": 0.1847,
+          "anchor": 1.02528
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 0.1683,
+          "anchor": 1.02529
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 0.1697,
+          "anchor": 1.01566
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 0.2543,
+          "anchor": 1.02238
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 0.2444,
+          "anchor": 1.02055
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 0.1525,
+          "anchor": 1.01305
+        }
+      ],
+      "meanFoldLiftPct": 0.1956,
+      "nQualified": 1691
+    },
+    "archetype": {
+      "nFeatures": 15,
+      "features": [
+        "period",
+        "seconds_remaining_in_period",
+        "score_margin",
+        "q4_or_ot",
+        "offense_is_home",
+        "opp_rate_logo",
+        "crew_rate_logo",
+        "f_height",
+        "f_pos_Center-Forward",
+        "f_pos_Forward",
+        "f_pos_Forward-Center",
+        "f_pos_Forward-Guard",
+        "f_pos_Guard",
+        "f_pos_Guard-Forward",
+        "f_pos_None"
+      ],
+      "foldLift": [
+        {
+          "season": "2020-21",
+          "liftPct": 0.772,
+          "anchor": 1.00942
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 1.0806,
+          "anchor": 1.01037
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 0.8316,
+          "anchor": 0.9981
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 0.9789,
+          "anchor": 0.99587
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 0.5927,
+          "anchor": 0.99781
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 0.706,
+          "anchor": 0.98605
+        }
+      ],
+      "meanFoldLiftPct": 0.827,
+      "nQualified": 1691
+    },
+    "identity": {
+      "nFeatures": 17,
+      "features": [
+        "period",
+        "seconds_remaining_in_period",
+        "score_margin",
+        "q4_or_ot",
+        "offense_is_home",
+        "opp_rate_logo",
+        "crew_rate_logo",
+        "f_height",
+        "f_pos_Center-Forward",
+        "f_pos_Forward",
+        "f_pos_Forward-Center",
+        "f_pos_Forward-Guard",
+        "f_pos_Guard",
+        "f_pos_Guard-Forward",
+        "f_pos_None",
+        "f_prior_ftr",
+        "f_prior_ftr_missing"
+      ],
+      "foldLift": [
+        {
+          "season": "2020-21",
+          "liftPct": 1.8623,
+          "anchor": 0.99112
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 2.1601,
+          "anchor": 1.0336
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 1.8849,
+          "anchor": 0.99196
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 1.9288,
+          "anchor": 0.96554
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 1.2677,
+          "anchor": 1.01047
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 1.6092,
+          "anchor": 1.01005
+        }
+      ],
+      "meanFoldLiftPct": 1.7855,
+      "nQualified": 1691
+    }
+  },
+  "productionCheck": {
+    "player": "Giannis Antetokounmpo",
+    "season": "2024-25",
+    "shipping": 311.8,
+    "reproduced": 311.84,
+    "delta": 0.038,
+    "passed": true
+  },
+  "comparisons": [
+    {
+      "comparison": "headline_vs_archetype",
+      "nPlayerSeasons": 1691,
+      "spearmanRho": 0.9061,
+      "spearmanP": 0.0,
+      "pearsonR": 0.9182,
+      "topNOverlap": {
+        "top10": 6,
+        "top25": 14,
+        "top50": 37,
+        "top100": 72
+      },
+      "rankShiftMean": 27.219,
+      "rankShiftP95": 88.0,
+      "rankShiftMax": 228.0,
+      "meanAbsDeltaPer100": 2.4248,
+      "maxAbsDeltaPer100": 11.4925,
+      "topGainers": [
+        {
+          "player": "Facundo Campazzo",
+          "season": "2020-21",
+          "base": -3.436,
+          "variant": 2.355,
+          "delta": 5.791
+        },
+        {
+          "player": "Ryan Nembhard",
+          "season": "2025-26",
+          "base": -14.494,
+          "variant": -8.89,
+          "delta": 5.604
+        },
+        {
+          "player": "Facundo Campazzo",
+          "season": "2021-22",
+          "base": -6.014,
+          "variant": -0.814,
+          "delta": 5.199
+        },
+        {
+          "player": "D.J. Augustin",
+          "season": "2020-21",
+          "base": -0.521,
+          "variant": 4.654,
+          "delta": 5.175
+        },
+        {
+          "player": "Davion Mitchell",
+          "season": "2025-26",
+          "base": -10.187,
+          "variant": -5.14,
+          "delta": 5.047
+        },
+        {
+          "player": "Jevon Carter",
+          "season": "2022-23",
+          "base": -16.016,
+          "variant": -11.032,
+          "delta": 4.983
+        },
+        {
+          "player": "Jose Alvarado",
+          "season": "2022-23",
+          "base": -6.502,
+          "variant": -1.551,
+          "delta": 4.951
+        },
+        {
+          "player": "Jose Alvarado",
+          "season": "2025-26",
+          "base": -12.392,
+          "variant": -7.442,
+          "delta": 4.95
+        }
+      ],
+      "topLosers": [
+        {
+          "player": "Bol Bol",
+          "season": "2022-23",
+          "base": -1.719,
+          "variant": -13.212,
+          "delta": -11.492
+        },
+        {
+          "player": "Victor Wembanyama",
+          "season": "2025-26",
+          "base": 7.671,
+          "variant": -3.305,
+          "delta": -10.976
+        },
+        {
+          "player": "Victor Wembanyama",
+          "season": "2024-25",
+          "base": -2.199,
+          "variant": -12.334,
+          "delta": -10.135
+        },
+        {
+          "player": "Victor Wembanyama",
+          "season": "2023-24",
+          "base": 3.813,
+          "variant": -5.954,
+          "delta": -9.767
+        },
+        {
+          "player": "Luke Kornet",
+          "season": "2024-25",
+          "base": 11.565,
+          "variant": 2.781,
+          "delta": -8.785
+        },
+        {
+          "player": "Kristaps Porzi\u0146\u0123is",
+          "season": "2025-26",
+          "base": 5.364,
+          "variant": -3.358,
+          "delta": -8.722
+        },
+        {
+          "player": "Chet Holmgren",
+          "season": "2025-26",
+          "base": 5.885,
+          "variant": -2.632,
+          "delta": -8.517
+        },
+        {
+          "player": "Kristaps Porzi\u0146\u0123is",
+          "season": "2020-21",
+          "base": -0.156,
+          "variant": -8.53,
+          "delta": -8.373
+        }
+      ]
+    },
+    {
+      "comparison": "headline_vs_identity",
+      "nPlayerSeasons": 1691,
+      "spearmanRho": 0.832,
+      "spearmanP": 0.0,
+      "pearsonR": 0.81,
+      "topNOverlap": {
+        "top10": 2,
+        "top25": 5,
+        "top50": 18,
+        "top100": 56
+      },
+      "rankShiftMean": 33.85,
+      "rankShiftP95": 108.0,
+      "rankShiftMax": 268.0,
+      "meanAbsDeltaPer100": 3.3712,
+      "maxAbsDeltaPer100": 35.7613,
+      "topGainers": [
+        {
+          "player": "Jordan Goodwin",
+          "season": "2022-23",
+          "base": -4.65,
+          "variant": 3.132,
+          "delta": 7.782
+        },
+        {
+          "player": "Tyus Jones",
+          "season": "2024-25",
+          "base": -12.891,
+          "variant": -5.343,
+          "delta": 7.548
+        },
+        {
+          "player": "Jevon Carter",
+          "season": "2022-23",
+          "base": -16.016,
+          "variant": -8.552,
+          "delta": 7.464
+        },
+        {
+          "player": "Jevon Carter",
+          "season": "2023-24",
+          "base": -17.095,
+          "variant": -9.658,
+          "delta": 7.437
+        },
+        {
+          "player": "Payton Pritchard",
+          "season": "2023-24",
+          "base": -10.911,
+          "variant": -3.518,
+          "delta": 7.393
+        },
+        {
+          "player": "Davion Mitchell",
+          "season": "2023-24",
+          "base": -9.013,
+          "variant": -1.661,
+          "delta": 7.352
+        },
+        {
+          "player": "Gabe Vincent",
+          "season": "2024-25",
+          "base": -15.543,
+          "variant": -8.382,
+          "delta": 7.161
+        },
+        {
+          "player": "Davion Mitchell",
+          "season": "2022-23",
+          "base": -13.732,
+          "variant": -6.642,
+          "delta": 7.089
+        }
+      ],
+      "topLosers": [
+        {
+          "player": "Rudy Gobert",
+          "season": "2022-23",
+          "base": 20.06,
+          "variant": -15.702,
+          "delta": -35.761
+        },
+        {
+          "player": "Moses Brown",
+          "season": "2020-21",
+          "base": 16.73,
+          "variant": -13.963,
+          "delta": -30.693
+        },
+        {
+          "player": "Moussa Diabat\u00e9",
+          "season": "2024-25",
+          "base": 7.651,
+          "variant": -19.414,
+          "delta": -27.065
+        },
+        {
+          "player": "Jaxson Hayes",
+          "season": "2020-21",
+          "base": 14.84,
+          "variant": -10.587,
+          "delta": -25.427
+        },
+        {
+          "player": "Dwight Howard",
+          "season": "2020-21",
+          "base": 21.797,
+          "variant": -2.372,
+          "delta": -24.169
+        },
+        {
+          "player": "Rudy Gobert",
+          "season": "2020-21",
+          "base": 23.205,
+          "variant": 0.477,
+          "delta": -22.729
+        },
+        {
+          "player": "Rudy Gobert",
+          "season": "2024-25",
+          "base": 18.765,
+          "variant": -0.772,
+          "delta": -19.537
+        },
+        {
+          "player": "Rudy Gobert",
+          "season": "2021-22",
+          "base": 27.044,
+          "variant": 8.123,
+          "delta": -18.922
+        }
+      ]
+    }
+  ]
+}

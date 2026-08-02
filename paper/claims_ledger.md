@@ -44,7 +44,8 @@ methods, validation) depends on which one the paper is about.
 | D2 | Games | 7,230 (1,080 in 2020-21, 1,230 each after) | `paper/experiment_record.md:10-11` | ✅ |
 | D3 | Field-goal attempts | 1,282,312 | `paper/experiment_record.md:12` | ✅ |
 | D4 | Possessions | 1,420,917 | `paper/experiment_record.md:12` | ✅ |
-| D4b | Possessions (conflicting) | "1.39M" | `README.md:41`; `CASE_STUDY.md:26` | ⚠️ conflicts with D4; resolve before citing |
+| D4b | Possessions with an attributable finisher | **1,392,350** (98.0% of D4) | `variant_archetype.py` run output, 2026-08-02 | ✅ **Resolves O2.** README's "1.39M" is the finisher universe, not a conflicting count of D4. Both are right; the paper must label which it means. Every model metric is computed on this universe. |
+| D4c | Finisher possessions joinable to a player-season record | 1,384,016 (99.4% of D4b); 100% of those carry height and position; 1,248,388 (89.7%) carry prior-season FTr | `variant_archetype.py` run output | ✅ |
 | D5 | Data sources | NBA Stats V3 live PBP + `shotchartdetail`, both public; no tracking/optical | `paper/experiment_record.md:13-14`; `pull.py` | ✅ |
 | D6 | Possession splitter | `pbpstats` library, no custom logic | `paper/experiment_record.md:15` | ✅ |
 | D7 | `sfta` distribution | 1,278,429 zeros / 34,460 ones / 103,037 twos / 4,769 threes / 213 fours / 9 fives (sums to D4) | `paper/experiment_record.md:20-23` | ✅ |
@@ -94,6 +95,14 @@ All from `headline_v4_context_metrics.json:folds[].params`, one fit per fold.
 | `opp_rate_logo` | +3.8437 | +3.9167 | +3.8813 | +3.5926 | +3.9292 | +3.7837 | ✅ |
 | `crew_rate_logo` | +1.9962 | +1.7506 | +2.2431 | +2.4038 | +1.7052 | +2.5275 | ✅ |
 
+**2026-08-02 addendum.** §2c and §2d below were produced by re-running the two
+variant tests against the current model, on Kevin's instruction. Both harnesses
+were gated on reproducing production before their variant arms were read:
+`variant_archetype.py` reproduces Giannis 2024-25 FTAOE at **311.84** vs the
+shipping **311.8**, and `variant_model_family.py` reproduces split-half **0.8408**
+vs the shipped **0.841** and padding K **67** vs **67**. Ledger items U1, U2, O2 and
+O3 are resolved; O3 produced a **correction** to the experiment record.
+
 **Note for drafting.** The prompt asks for "the `score_margin` feature-importance finding
 and its officiating-behavior interpretation." In the *current* model `score_margin` is a
 GLM coefficient, not a gain-based importance, it is the smallest-magnitude slope in the
@@ -102,6 +111,132 @@ monotone trend. The large gain-based `score_margin` importances (C4 below) belon
 superseded tree models. An officiating-behavior claim resting on this is not supportable
 as written. `opp_rate_logo` and `crew_rate_logo` are where the real signal is, and
 `crew_rate_logo` is the defensible officiating result.
+
+---
+
+## 2c. Archetype / identity variant — RE-RUN, now citable
+
+Script: `variant_archetype.py`. Artifact: `model_artifacts/variant_archetype.json`.
+Replaces the unciteable U1. Three Poisson GLM arms, identical folds, identical
+anchoring; the `headline` arm imports the production feature list and `load()`, so
+it *is* the shipping model.
+
+**The question.** FTAOE's model is context-only by design and never sees who is
+shooting. Hand it the finisher's identity and does the leaderboard change?
+
+| # | Arm | Features | Mean fold lift | Source | Status |
+|---|---|---|---|---|---|
+| V1 | `headline` (production) | 7 | **0.196%** | `variant_archetype.json:arms.headline` | ✅ |
+| V2 | `archetype` (+ height, position) | 15 | **0.827%** | `arms.archetype` | ✅ |
+| V3 | `identity` (+ prior-season FTr + missingness flag) | 17 | **1.786%** | `arms.identity` | ✅ |
+
+| # | Comparison | Value | Status |
+|---|---|---|---|
+| V4 | headline vs archetype, **Spearman rho** | **0.9061** (p < 1e-300, n = 1,691) | ✅ |
+| V5 | headline vs archetype, Pearson r | 0.9182 | ✅ |
+| V6 | headline vs archetype, top-N overlap | top10 **6**, top25 14, top50 37, top100 72 | ✅ |
+| V7 | headline vs archetype, rank shift | mean 27.2, max 228 | ✅ |
+| V8 | headline vs identity, **Spearman rho** | **0.8320** (n = 1,691) | ✅ |
+| V9 | headline vs identity, Pearson r | 0.8100 | ✅ |
+| V10 | headline vs identity, top-N overlap | top10 **2**, top25 5, top50 18, top100 56 | ✅ |
+| V11 | headline vs identity, max \|delta/100\| | 35.76 | ✅ |
+| V12 | Production reproduction gate | Giannis 2024-25: 311.84 vs shipping 311.8 (delta 0.04) | ✅ PASS |
+
+**Named movers (all ✅, from `topGainers`/`topLosers`).** Under `archetype`, the
+biggest losers are tall: Bol Bol −11.49, Wembanyama −10.98 (2025-26), −10.13
+(2024-25), −9.77 (2023-24), Kornet −8.78, Porziņģis −8.72, Holmgren −8.52. Under
+`identity`, Rudy Gobert 2022-23 collapses **+20.06 → −15.70** (−35.76); Gobert is
+in four of the eight largest drops.
+
+**Interpretation for the paper.** This is a strong result and it cuts both ways,
+which is why it belongs in Validation rather than Findings:
+
+- Identity features *do* add per-possession fit (0.196% → 0.827% → 1.786%), so
+  "context-only" costs measurable likelihood. Say so.
+- The ordering survives anyway (rho 0.906 with height/position), so the
+  leaderboard is not an artefact of withholding identity.
+- But the **extreme tail moves a lot**: top-10 overlap is 6/10 under archetype and
+  2/10 under identity. The claim "the ranking is unchanged" would be an overclaim.
+  The honest claim is "the ranking is broadly preserved; the leaders are not."
+- The `identity` arm is the conceptual centrepiece. Prior-season FTr *is* a
+  measurement of the thing FTAOE measures, so feeding it in explains the signal
+  away by construction. Gobert going from the best foul-drawer in the league to
+  the worst is the cleanest possible demonstration that this is circularity, not
+  improvement. That is the argument for excluding identity, stated as evidence
+  rather than as a design preference.
+
+---
+
+## 2d. Model-family comparison — RE-RUN, now citable
+
+Script: `variant_model_family.py`. Artifact:
+`model_artifacts/variant_model_family.json`. Replaces the unciteable U2. Same
+folds, same anchoring, four scoring dimensions per arm.
+
+| # | Arm | OOF lift | Split-half r | **Full-season r** | Calib. slope | Status |
+|---|---|---|---|---|---|---|
+| F1 | `poisson_glm` (production) | 0.1955% | 0.8408 | **0.9135** | 0.4256 | ✅ |
+| F2 | `multinomial` {0,1,2,3+} | 0.1956% | 0.8408 | **0.9135** | 0.4260 | ✅ |
+| F3 | `poisson_lgbm` | **0.2538%** | 0.8419 | **0.9141** | **0.2108** | ✅ |
+
+| # | Claim | Value | Status |
+|---|---|---|---|
+| F4 | GLM vs multinomial, leaderboard Spearman | **1.0000**, top-20 overlap **20/20** | ✅ |
+| F5 | GLM vs LightGBM, leaderboard Spearman | **0.9988**, top-20 overlap 19/20 | ✅ |
+| F6 | LightGBM per-fold best iteration | 305, 292, 288, 306, 304, 303 | ✅ |
+| F7 | Multinomial collapsed-class value (3+) | 3.044–3.048 by fold, from training rows only | ✅ |
+| F8 | Padding constant K, all three arms | 67 possessions | ✅ |
+
+**Interpretation for the paper.** Two clean negative results, which is exactly
+what a model-selection section should contain:
+
+- **Modelling the count categories explicitly buys literally nothing.** The
+  multinomial arm matches the Poisson GLM to four decimal places on lift and
+  produces a **rank-identical** leaderboard (rho = 1.0000, 20/20). The lumpy
+  support (2 is commoner than 1, because a foul on a miss awards two shots and an
+  and-1 awards one) does not matter once predictions are aggregated. This is the
+  honest answer to "why not model the categories?"
+- **The boosted learner wins on per-possession fit and loses everywhere else.**
+  LightGBM lifts 0.254% vs 0.196% (+30% relative), but full-season reliability
+  moves 0.9135 → 0.9141 (nothing), player-season calibration slope gets **worse**
+  (0.426 → 0.211), and the leaderboard is 0.9988-identical anyway. Extra
+  flexibility buys per-event fit that does not survive aggregation, and costs
+  calibration. That is the argument for the GLM, and it doubles as the direct
+  answer to why the superseded LightGBM lineage (§3) was abandoned.
+
+---
+
+## 2e. Calibration — CORRECTION to the experiment record
+
+Artifact: `variant_model_family.json:arms.poisson_glm.calibration`, independently
+confirmed by re-running the repo's own `check_calibration.py`.
+
+`paper/experiment_record.md:61` says: *"Player-season decile calibration on OOF
+aggregates is diagonal (slope ~1)."* **This is wrong.**
+
+| # | Claim | Value | Status |
+|---|---|---|---|
+| K1 | Player-season decile calibration slope (≥100 poss) | **0.426** | ✅ measured twice |
+| K2 | Intercept | 0.0973 | ✅ |
+| K3 | Pearson r across decile means | 0.4374 | ✅ |
+| K4 | Max \|residual\| from identity | **13.57%** (decile 10) | ✅ |
+| K5 | Mean \|residual\| | 4.87% | ✅ |
+| K6 | Aggregate calibration | mean predicted 0.1835 vs actual 0.1853, **+0.95%** | ✅ |
+| K7 | Predicted-rate range across deciles | 0.1737 – 0.1969 | ✅ |
+
+**What is actually true.** The model is well calibrated **in aggregate** (K6,
++0.95%, and anchoring pins this by construction) but **not** across its own
+predicted deciles (K1). That is expected, not a defect: predicted spread is driven
+by context (opponent, crew, period mix) and spans only 0.174–0.197 (K7), while
+player-season actual rates are dominated by the player skill the model is
+deliberately blind to. Sorting player-seasons by predicted rate therefore does not
+sort them by actual rate, and the narrow x-range attenuates the OLS slope on top of
+that.
+
+The paper must state calibration as: aggregate calibration holds by construction;
+per-decile calibration at player-season grain is weak and the reason is the design.
+It must **not** repeat "well-calibrated across the range." `experiment_record.md:61`
+should be corrected in the same pass.
 
 ---
 
@@ -124,9 +259,9 @@ as written. `opp_rate_logo` and `crew_rate_logo` are where the real signal is, a
 
 | # | Prompt claim | Finding |
 |---|---|---|
-| U1 | **Archetype-variant test, Spearman rho = 0.92** | ❌ `variants.py` (deleted, recoverable at `e4a49a8^`) computed `spearmanr(...)` and **printed to stdout only**. No metrics file was ever written. It read `model_artifacts/cross_fit_predictions.csv`, which no longer exists. Surviving: the two model binaries (`archetype_gate_a.txt` with `shooter_height` + `shooter_position`, `headline_gate_a.txt` without) and nothing else. The **design** of the test is documented and citable; the **result** is not. And it ran on the broken `fta_from_shot` target, so re-running it as-is would not rescue the number either. |
-| U2 | **Poisson-vs-multiclass comparison** | ❌ Same fate: printed only, `multiclass_predictions.csv` deleted. Only `calibration_poisson_vs_multiclass.png` survives, and it plots the broken target. Separately, the committed config is internally inconsistent: docstring says 4-class (0/1/2/3), `MULTICLASS_PARAMS` sets `num_class: 3`, and the EV uses classes 0/1/2 only (`variants.py:44-55, 228-231`). The variant as committed does not match its own description. |
-| U3 | **Per-zone calibration of the FTAOE model** | ❌ Does not exist. Per-zone calibration is an **xFG** result (`xfg_evaluate.py` → `xfg_reliability.png`). xFTA's calibration is per-**decile** at player-season grain (`check_calibration.py`), and that script prints without saving. |
+| U1 | **Archetype-variant test, Spearman rho = 0.92** | ✅ **RESOLVED 2026-08-02 by re-running it. See §2c.** The original was unrecoverable: `variants.py` printed rho to stdout, wrote no metrics file, and read a predictions CSV that no longer exists; it also ran on the broken `fta_from_shot` target, so recovering it would not have helped. Re-run against the shipping model gives **rho = 0.9061** (height + position) and **0.8320** (+ prior-season FTr). The remembered "0.92" is closest to the new **Pearson r = 0.9182**, but that is coincidence, not provenance: cite §2c, never the remembered figure. |
+| U2 | **Poisson-vs-multiclass comparison** | ✅ **RESOLVED 2026-08-02 by re-running it. See §2d.** The original was printed-only, its predictions CSV deleted, its surviving PNG plots the broken target, and its config contradicted its own docstring (4-class in prose, `num_class: 3` in params, classes 0/1/2 in the expectation). Re-run on the current target: the multinomial arm is **rank-identical** to the Poisson GLM (rho = 1.0000, top-20 20/20). A third arm (Poisson LightGBM) was added to answer the learner question the prompt's "LightGBM" framing raises. |
+| U3 | **Per-zone calibration of the FTAOE model** | ❌ **Still does not exist, and should not be manufactured.** Per-zone is an **xFG** result (`xfg_evaluate.py` → `xfg_reliability.png`); zones are a property of shot location, and the FTAOE model is at possession grain with no location feature at all, so a per-zone FTAOE calibration is not a well-defined object. Its nearest counterpart, per-decile calibration at player-season grain, is now captured in §2e, and it does **not** say what the prompt assumed it would. |
 | U4 | **`ftaoe_centered` rationale** | ❌ Not a shipping concept. `ftaoe_centered` appears only in `build_leaderboard.py:73`, the legacy FGA-grain script writing the legacy `player_season_xfta` table. The production path is `build_possession_leaderboard_clean.py`, and season comparability is handled by **anchoring** (M9), not centering. The season-drift story is real; the mechanism named in the prompt is the wrong one. |
 | U5 | "655,000+ shots/possessions across 3 seasons" | ❌ 650,007 rows, and it describes the superseded Gate A split, not the current 1,420,917-possession / 6-season build. |
 | U6 | "18.83% lift" as a current result | ❌ See S1. |
@@ -239,9 +374,21 @@ adversarial review step.
 
 What ARS actually ships:
 
+> **2026-08-02 change: the preprint destination is Zenodo, not arXiv.** No arXiv
+> endorser, and Zenodo has no endorsement gate, so it is the guaranteed path to a
+> permanent DOI'd preprint. Zenodo needs no venue-specific LaTeX class: the same
+> PDF built for the journal is what gets deposited, with the LaTeX source, the
+> code-repo link, and a data description as supplementary files. It does need a
+> metadata block (title, authors, abstract, keywords, licence) prepared alongside
+> the PDF; recommended licence CC-BY 4.0. Full deposit checklist and the optional
+> GitHub-release-DOI integration are in `paper/submission_targets.md`. The
+> equivalent note for Football OE is at
+> `Football OE/docs/paper-submission-targets.md`. Neither build spec existed as a
+> file, so those two documents now *are* the specs' venue sections.
+
 | need | covered? | what exists |
 |---|---|---|
-| (a) LaTeX/arXiv scaffolding | ⚠️ generic only | `academic-paper/templates/latex_article_template.tex`, `references/latex_template_reference.md`. Generic `article` class. No arXiv-specific class. |
+| (a) LaTeX scaffolding (Zenodo needs no venue class) | ✅ sufficient | `academic-paper/templates/latex_article_template.tex`, `references/latex_template_reference.md`. Generic `article` class, which is all a Zenodo deposit requires. |
 | (a) JQAS / De Gruyter template | ❌ **none** | Zero hits for "De Gruyter", "JQAS", "Quantitative Analysis in Sports" across the whole plugin. |
 | (a) Sloan / StatsBomb template | ❌ **none** | Zero hits for "Sloan" or "StatsBomb". Closest is `templates/conference_paper_template.md`, a generic 2,000–5,000-word skeleton. |
 | (b) citation verification | ✅ **strong** | `scripts/crossref_client.py`, `openalex_client.py`, `semantic_scholar_client.py`, `arxiv_client.py`, plus `verification_gate/`, `verification_cache.py`, `citation_verification_summary.py`, and `/ars-citation-check`. This is the best-covered requirement. |
@@ -285,11 +432,22 @@ None of the three supports an 18.83% headline.
 
 ## 12. Open items before Gate 2
 
-| # | Item | Action |
+| # | Item | Status |
 |---|---|---|
-| O1 | Which framing (§11) | **Your call.** Blocks the abstract and contribution statement. |
-| O2 | D4 vs D4b possession count (1,420,917 vs 1.39M) | Resolve; one is wrong or they are different filters |
-| O3 | xFTA per-decile calibration slope (`experiment_record.md:61` says "slope ~1", no artifact) | Re-run `check_calibration.py`, capture to JSON. Needed if the paper claims calibration. |
-| O4 | U1 archetype test | Either re-run on the *current* possession model and target (a real, defensible held-out-identity test), or drop the claim. Cannot be cited as-is. |
-| O5 | U2 multiclass comparison | Same choice, plus fix the `num_class` inconsistency if re-run |
-| O6 | Sloan page limit + JQAS author guidelines | Fetch live at Gate 5 |
+| O1 | Which framing (§11) | ✅ **Framing #3 chosen** (2026-08-02): xFG leak audit as the methods contribution, FTAOE reliability as the applied result. |
+| O2 | Possession count 1,420,917 vs 1.39M | ✅ Resolved. Not a conflict: 1,420,917 total, 1,392,350 with a finisher. See D4/D4b. |
+| O3 | xFTA per-decile calibration | ✅ Resolved, and it produced a **correction**: measured slope is **0.426**, not the "~1" claimed at `experiment_record.md:61`. See §2e. |
+| O4 | U1 archetype test | ✅ Re-run against the current model. See §2c. |
+| O5 | U2 multiclass comparison | ✅ Re-run against the current target, plus a third LightGBM arm. See §2d. |
+| O6 | Venue requirements | ⬜ Fetch live at Gate 5: Sloan innovation-track page limit, JQAS/De Gruyter author guidelines. Zenodo needs no template but needs the metadata block. |
+| O7 | **Correct `experiment_record.md:61`** | ⬜ The "diagonal (slope ~1)" line is wrong and should be fixed in the same pass as Gate 2, so the repo and the paper agree. |
+| O8 | Kill the orphaned calibration PNGs | ⬜ `calibration_global.png` / `calibration_per_zone.png` plot the abandoned target and no code regenerates them (§3 S5). Delete or move to `_v3_archive/` so nobody cites them. |
+
+---
+
+## 13. Changelog
+
+- **2026-08-02** — Gate 1 built. Headline finding: the 18.83% lift is superseded (§0, §3).
+- **2026-08-02** — Framing #3 approved. U1 and U2 re-run against the current model
+  and are now citable (§2c, §2d); O2 and O3 resolved; O3 produced a correction to
+  the experiment record (§2e). Preprint destination changed arXiv → Zenodo (§10).

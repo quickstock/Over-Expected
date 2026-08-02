@@ -1,0 +1,402 @@
+{
+  "arms": {
+    "poisson_glm": {
+      "oofLiftPct": 0.1955,
+      "folds": [
+        {
+          "season": "2020-21",
+          "liftPct": 0.1847,
+          "anchor": 1.02528
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 0.1683,
+          "anchor": 1.02529
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 0.1697,
+          "anchor": 1.01566
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 0.2543,
+          "anchor": 1.02238
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 0.2444,
+          "anchor": 1.02055
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 0.1525,
+          "anchor": 1.01305
+        }
+      ],
+      "reliability": {
+        "splitHalfR": 0.8408,
+        "fullSeasonR": 0.9135,
+        "meanHalfPoss": 354,
+        "paddingK": 67,
+        "nPlayerSeasons": 1691
+      },
+      "calibration": {
+        "minPossessions": 100,
+        "nPlayerSeasons": 2488,
+        "slope": 0.4256,
+        "intercept": 0.097303,
+        "maxAbsResidualPct": 13.567,
+        "meanAbsResidualPct": 4.875,
+        "deciles": [
+          {
+            "decile": 1,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17369,
+            "actualRate": 0.17731,
+            "residualPct": 2.083
+          },
+          {
+            "decile": 2,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17613,
+            "actualRate": 0.16899,
+            "residualPct": -4.052
+          },
+          {
+            "decile": 3,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17792,
+            "actualRate": 0.17225,
+            "residualPct": -3.187
+          },
+          {
+            "decile": 4,
+            "nPlayerSeasons": 248,
+            "predRate": 0.17941,
+            "actualRate": 0.17643,
+            "residualPct": -1.661
+          },
+          {
+            "decile": 5,
+            "nPlayerSeasons": 249,
+            "predRate": 0.18079,
+            "actualRate": 0.16917,
+            "residualPct": -6.429
+          },
+          {
+            "decile": 6,
+            "nPlayerSeasons": 249,
+            "predRate": 0.18242,
+            "actualRate": 0.16825,
+            "residualPct": -7.763
+          },
+          {
+            "decile": 7,
+            "nPlayerSeasons": 248,
+            "predRate": 0.18717,
+            "actualRate": 0.17573,
+            "residualPct": -6.11
+          },
+          {
+            "decile": 8,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19168,
+            "actualRate": 0.18981,
+            "residualPct": -0.975
+          },
+          {
+            "decile": 9,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19359,
+            "actualRate": 0.18794,
+            "residualPct": -2.921
+          },
+          {
+            "decile": 10,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19692,
+            "actualRate": 0.17021,
+            "residualPct": -13.567
+          }
+        ]
+      },
+      "nQualified": 1691
+    },
+    "multinomial": {
+      "oofLiftPct": 0.1956,
+      "folds": [
+        {
+          "season": "2020-21",
+          "liftPct": 0.1849,
+          "anchor": 1.02509,
+          "tailClassValue": 3.0483
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 0.1689,
+          "anchor": 1.02532,
+          "tailClassValue": 3.0475
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 0.1693,
+          "anchor": 1.01525,
+          "tailClassValue": 3.0465
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 0.2548,
+          "anchor": 1.02264,
+          "tailClassValue": 3.0439
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 0.2448,
+          "anchor": 1.02075,
+          "tailClassValue": 3.0454
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 0.152,
+          "anchor": 1.01269,
+          "tailClassValue": 3.0461
+        }
+      ],
+      "reliability": {
+        "splitHalfR": 0.8408,
+        "fullSeasonR": 0.9135,
+        "meanHalfPoss": 354,
+        "paddingK": 67,
+        "nPlayerSeasons": 1691
+      },
+      "calibration": {
+        "minPossessions": 100,
+        "nPlayerSeasons": 2488,
+        "slope": 0.426,
+        "intercept": 0.09724,
+        "maxAbsResidualPct": 13.837,
+        "meanAbsResidualPct": 4.866,
+        "deciles": [
+          {
+            "decile": 1,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17367,
+            "actualRate": 0.17721,
+            "residualPct": 2.036
+          },
+          {
+            "decile": 2,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17613,
+            "actualRate": 0.16877,
+            "residualPct": -4.18
+          },
+          {
+            "decile": 3,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17793,
+            "actualRate": 0.17175,
+            "residualPct": -3.473
+          },
+          {
+            "decile": 4,
+            "nPlayerSeasons": 248,
+            "predRate": 0.17941,
+            "actualRate": 0.17656,
+            "residualPct": -1.591
+          },
+          {
+            "decile": 5,
+            "nPlayerSeasons": 249,
+            "predRate": 0.1808,
+            "actualRate": 0.16957,
+            "residualPct": -6.21
+          },
+          {
+            "decile": 6,
+            "nPlayerSeasons": 249,
+            "predRate": 0.18242,
+            "actualRate": 0.16899,
+            "residualPct": -7.363
+          },
+          {
+            "decile": 7,
+            "nPlayerSeasons": 248,
+            "predRate": 0.1872,
+            "actualRate": 0.17544,
+            "residualPct": -6.28
+          },
+          {
+            "decile": 8,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19169,
+            "actualRate": 0.18913,
+            "residualPct": -1.337
+          },
+          {
+            "decile": 9,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19358,
+            "actualRate": 0.18902,
+            "residualPct": -2.355
+          },
+          {
+            "decile": 10,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19689,
+            "actualRate": 0.16965,
+            "residualPct": -13.837
+          }
+        ]
+      },
+      "nQualified": 1691
+    },
+    "poisson_lgbm": {
+      "oofLiftPct": 0.2538,
+      "folds": [
+        {
+          "season": "2020-21",
+          "liftPct": 0.2944,
+          "anchor": 1.02648,
+          "bestIteration": 305
+        },
+        {
+          "season": "2021-22",
+          "liftPct": 0.2525,
+          "anchor": 1.0127,
+          "bestIteration": 292
+        },
+        {
+          "season": "2022-23",
+          "liftPct": 0.2458,
+          "anchor": 1.00667,
+          "bestIteration": 288
+        },
+        {
+          "season": "2023-24",
+          "liftPct": 0.3226,
+          "anchor": 1.00739,
+          "bestIteration": 306
+        },
+        {
+          "season": "2024-25",
+          "liftPct": 0.3232,
+          "anchor": 1.0273,
+          "bestIteration": 304
+        },
+        {
+          "season": "2025-26",
+          "liftPct": 0.097,
+          "anchor": 1.03085,
+          "bestIteration": 303
+        }
+      ],
+      "reliability": {
+        "splitHalfR": 0.8419,
+        "fullSeasonR": 0.9141,
+        "meanHalfPoss": 354,
+        "paddingK": 67,
+        "nPlayerSeasons": 1691
+      },
+      "calibration": {
+        "minPossessions": 100,
+        "nPlayerSeasons": 2488,
+        "slope": 0.2108,
+        "intercept": 0.136644,
+        "maxAbsResidualPct": 12.539,
+        "meanAbsResidualPct": 5.892,
+        "deciles": [
+          {
+            "decile": 1,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17102,
+            "actualRate": 0.17988,
+            "residualPct": 5.18
+          },
+          {
+            "decile": 2,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17556,
+            "actualRate": 0.17598,
+            "residualPct": 0.241
+          },
+          {
+            "decile": 3,
+            "nPlayerSeasons": 249,
+            "predRate": 0.17795,
+            "actualRate": 0.17355,
+            "residualPct": -2.473
+          },
+          {
+            "decile": 4,
+            "nPlayerSeasons": 248,
+            "predRate": 0.18022,
+            "actualRate": 0.16977,
+            "residualPct": -5.794
+          },
+          {
+            "decile": 5,
+            "nPlayerSeasons": 249,
+            "predRate": 0.18256,
+            "actualRate": 0.16691,
+            "residualPct": -8.571
+          },
+          {
+            "decile": 6,
+            "nPlayerSeasons": 249,
+            "predRate": 0.1852,
+            "actualRate": 0.16479,
+            "residualPct": -11.018
+          },
+          {
+            "decile": 7,
+            "nPlayerSeasons": 248,
+            "predRate": 0.18833,
+            "actualRate": 0.17793,
+            "residualPct": -5.518
+          },
+          {
+            "decile": 8,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19154,
+            "actualRate": 0.18974,
+            "residualPct": -0.942
+          },
+          {
+            "decile": 9,
+            "nPlayerSeasons": 249,
+            "predRate": 0.19497,
+            "actualRate": 0.18202,
+            "residualPct": -6.639
+          },
+          {
+            "decile": 10,
+            "nPlayerSeasons": 249,
+            "predRate": 0.20064,
+            "actualRate": 0.17548,
+            "residualPct": -12.539
+          }
+        ]
+      },
+      "nQualified": 1691
+    }
+  },
+  "rankAgreementVsProduction": {
+    "multinomial": {
+      "spearmanRho": 1.0,
+      "spearmanP": 0.0,
+      "top20Overlap": 20,
+      "n": 1691
+    },
+    "poisson_lgbm": {
+      "spearmanRho": 0.9988,
+      "spearmanP": 0.0,
+      "top20Overlap": 19,
+      "n": 1691
+    }
+  },
+  "design": "Identical 6-fold season cross-fit and per-season anchoring on the finisher universe for every arm. Multinomial collapses the target to {0,1,2,3+} with the top class valued at its training-fold empirical mean. LightGBM early-stops on a random 10% of training rows, never on the evaluation fold.",
+  "qualifyPossessions": 300,
+  "verdict": "Read the reliability column, not the lift column: the possession-level event is near-pure noise under any learner, so per-possession lift cannot separate these models. Season-grain reliability can."
+}
