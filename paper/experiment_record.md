@@ -58,7 +58,12 @@ the ARS pipeline intake.
 - OOF anchored Poisson-deviance lift vs season-mean baseline: 0.195% global
   (folds: 0.185 / 0.168 / 0.170 / 0.254 / 0.244 / 0.152 for 2020-21..2025-26).
   Anchors 1.013-1.025.
-- Player-season decile calibration on OOF aggregates is diagonal (slope ~1).
+- Player-season decile calibration on OOF aggregates is NOT diagonal:
+  measured slope 0.426, intercept 0.097, max |residual| 13.6% (decile 10).
+  Aggregate calibration does hold (+0.95%), which anchoring pins by
+  construction. Corrected 2026-08-02; the earlier "slope ~1" line was
+  wrong and was never measured. See model_artifacts/variant_model_family.json
+  and check_calibration.py.
 
 ### Combined shot value (points over expected)
 - FG side: actual FG points minus expected FG points (xFG x 2/3pt).

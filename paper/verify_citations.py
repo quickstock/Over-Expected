@@ -93,8 +93,9 @@ CANDIDATES = [
 
     # --- expected goals, the analogous framework in soccer
     ("decroos2019actions",
-     "Actions Speak Louder than Goals: Valuing Player Actions in Soccer",
-     2019, "action-value framing transferred across sports", None),
+     "Actions Speak Louder than Goals", 2019,
+     "action-value framing transferred across sports",
+     "10.1145/3292500.3330758"),
     ("rathke2017examination",
      "An examination of expected goals and shot efficiency in soccer", 2017,
      "expected-goals as a shot-quality baseline", None),

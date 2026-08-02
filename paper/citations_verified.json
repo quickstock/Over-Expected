@@ -261,25 +261,25 @@
     "why": "refinements to the Poisson sports-count baseline"
   },
   {
-    "source": "openalex",
-    "title": "Actions Speak Louder Than Goals: Valuing Player Actions in Soccer",
-    "doi": "10.48550/arxiv.1802.07127",
-    "year": 2018,
+    "source": "crossref",
+    "title": "Actions Speak Louder than Goals",
+    "doi": "10.1145/3292500.3330758",
+    "year": 2019,
     "authors": [
-      "Tom Decroos",
-      "Lotte Bransen",
-      "Jan Van Haaren",
-      "Jesse Davis"
+      "Decroos, Tom",
+      "Bransen, Lotte",
+      "Van Haaren, Jan",
+      "Davis, Jesse"
     ],
-    "container": "Lirias",
-    "publisher": null,
-    "type": null,
+    "container": "Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining",
+    "publisher": "ACM",
+    "type": "proceedings-article",
     "volume": null,
     "issue": null,
-    "page": null,
+    "page": "1851-1861",
     "hasDoi": true,
     "key": "decroos2019actions",
-    "queryTitle": "Actions Speak Louder than Goals: Valuing Player Actions in Soccer",
+    "queryTitle": "Actions Speak Louder than Goals",
     "queryYear": 2019,
     "why": "action-value framing transferred across sports"
   },

@@ -1,0 +1,129 @@
+{
+  "qualifyPossessions": 300,
+  "nPlayerSeasons": 1691,
+  "rawRate": {
+    "splitHalfR": 0.841,
+    "fullSeasonR": 0.9136,
+    "paddingK": 67,
+    "nPlayerSeasons": 1691,
+    "yoy": {
+      "meanR": 0.8491,
+      "perPair": [
+        0.852,
+        0.833,
+        0.858,
+        0.864,
+        0.838
+      ]
+    }
+  },
+  "ftaoe": {
+    "splitHalfR": 0.8408,
+    "fullSeasonR": 0.9135,
+    "paddingK": 67,
+    "nPlayerSeasons": 1691,
+    "yoy": {
+      "meanR": 0.8497,
+      "perPair": [
+        0.852,
+        0.834,
+        0.858,
+        0.865,
+        0.839
+      ]
+    }
+  },
+  "agreement": {
+    "spearmanRho": 0.9947,
+    "spearmanP": 0.0,
+    "pearsonR": 0.9953,
+    "top10Overlap": 9,
+    "top25Overlap": 24,
+    "top50Overlap": 46,
+    "rankShiftMean": 1.74,
+    "rankShiftP95": 5.0,
+    "rankShiftMax": 14.0
+  },
+  "biggestMovers": [
+    {
+      "player": "Gradey Dick",
+      "season": "2025-26",
+      "rawPer100": 16.751,
+      "rawRank": 183,
+      "ftaoePer100": -3.021,
+      "ftaoeRank": 197
+    },
+    {
+      "player": "Jordan Nwora",
+      "season": "2023-24",
+      "rawPer100": 15.0,
+      "rawRank": 160,
+      "ftaoePer100": -3.6,
+      "ftaoeRank": 173
+    },
+    {
+      "player": "Ivica Zubac",
+      "season": "2025-26",
+      "rawPer100": 17.91,
+      "rawRank": 164,
+      "ftaoePer100": -1.029,
+      "ftaoeRank": 153
+    },
+    {
+      "player": "Tari Eason",
+      "season": "2022-23",
+      "rawPer100": 21.231,
+      "rawRank": 97,
+      "ftaoePer100": 1.608,
+      "ftaoeRank": 107
+    },
+    {
+      "player": "Trey Lyles",
+      "season": "2022-23",
+      "rawPer100": 21.029,
+      "rawRank": 102,
+      "ftaoePer100": 1.432,
+      "ftaoeRank": 112
+    },
+    {
+      "player": "Jaden McDaniels",
+      "season": "2025-26",
+      "rawPer100": 16.14,
+      "rawRank": 199,
+      "ftaoePer100": -2.883,
+      "ftaoeRank": 189
+    },
+    {
+      "player": "Justin Edwards",
+      "season": "2025-26",
+      "rawPer100": 8.411,
+      "rawRank": 269,
+      "ftaoePer100": -11.333,
+      "ftaoeRank": 278
+    },
+    {
+      "player": "Isaiah Hartenstein",
+      "season": "2024-25",
+      "rawPer100": 17.399,
+      "rawRank": 148,
+      "ftaoePer100": -0.396,
+      "ftaoeRank": 139
+    },
+    {
+      "player": "Serge Ibaka",
+      "season": "2020-21",
+      "rawPer100": 11.99,
+      "rawRank": 203,
+      "ftaoePer100": -5.451,
+      "ftaoeRank": 194
+    },
+    {
+      "player": "Paul Reed",
+      "season": "2025-26",
+      "rawPer100": 20.865,
+      "rawRank": 108,
+      "ftaoePer100": 1.213,
+      "ftaoeRank": 117
+    }
+  ]
+}

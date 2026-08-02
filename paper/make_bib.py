@@ -96,10 +96,6 @@ VENUE_OVERRIDE = {
         "container": "Advances in Neural Information Processing Systems 30 "
                      "(NeurIPS 2017)",
         "publisher": None, "type": "proceedings-article"},
-    "decroos2019actions": {
-        "container": "Proceedings of the 25th ACM SIGKDD International "
-                     "Conference on Knowledge Discovery and Data Mining",
-        "year": 2019, "publisher": "ACM", "type": "proceedings-article"},
     "miller2014factorized": {
         "container": "Proceedings of the 31st International Conference on "
                      "Machine Learning (ICML 2014)",
