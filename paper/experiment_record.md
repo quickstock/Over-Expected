@@ -58,12 +58,20 @@ the ARS pipeline intake.
 - OOF anchored Poisson-deviance lift vs season-mean baseline: 0.195% global
   (folds: 0.185 / 0.168 / 0.170 / 0.254 / 0.244 / 0.152 for 2020-21..2025-26).
   Anchors 1.013-1.025.
-- Player-season decile calibration on OOF aggregates is NOT diagonal:
-  measured slope 0.426, intercept 0.097, max |residual| 13.6% (decile 10).
-  Aggregate calibration does hold (+0.95%), which anchoring pins by
-  construction. Corrected 2026-08-02; the earlier "slope ~1" line was
-  wrong and was never measured. See model_artifacts/variant_model_family.json
-  and check_calibration.py.
+- Player-season calibration depends on the estimator, and the honest summary
+  is that it is fine at the grain the metric is used at:
+    * player-season WLS, >=300 poss (the leaderboard threshold): slope 1.011,
+      95% CI [0.512, 1.509]  <- the relevant number
+    * decile OLS, >=300 poss: slope 0.714, CI [0.095, 1.332]
+    * decile OLS, >=100 poss (what check_calibration.py computes): slope
+      0.426, CI [-0.288, 1.139], p = 0.206 -- not distinguishable from 1
+  The 0.426 figure is an artifact of unweighted 10-point binning that also
+  includes 797 player-seasons below the qualifying cut. Aggregate
+  calibration holds (+0.95%). NOTE: a 2026-08-02 edit to this file replaced
+  the original "diagonal (slope ~1)" line with a claim that calibration was
+  weak; peer review showed that edit was wrong and the original was closer to
+  right. Both the original and the first correction were unmeasured; this
+  version is measured. See paper/review_findings.md F17.
 
 ### Combined shot value (points over expected)
 - FG side: actual FG points minus expected FG points (xFG x 2/3pt).

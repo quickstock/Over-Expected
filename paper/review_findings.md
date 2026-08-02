@@ -100,6 +100,102 @@ feeds the live site.**
 
 ---
 
+### F16. FTAOE has a large, monotone height gradient. ✅ CONFIRMED, new and serious
+Methodology reviewer. I re-ran it and reproduced every figure:
+
+- corr(FTAOE/100, height) = **+0.391** (r² = 0.153)
+- mean FTAOE/100 by height band: ≤6'2" **−4.31**, 6'3"–6'6" −1.98, 6'7"–6'9"
+  −0.21, 6'10"–7'0" **+5.24**, ≥7'0" **+5.76**. A **10.07** per-100 spread on a
+  metric whose sd is 7.57.
+- adding height + position collapses it: corr → **+0.016**
+- corr(archetype − headline delta, height) = **−0.9515**, i.e. the archetype
+  adjustment is almost purely a height correction
+
+So roughly 15% of FTAOE's variance is body type, which no definition of
+"foul-drawing craft" includes. This also destroys the face-validity argument a
+second way: the recovered ordering is substantially a height ordering.
+
+**Resolution: report the height gradient, and either ship the archetype
+specification as the headline (height is not a prior measurement of the outcome,
+so including it is not circular the way prior-season FTr is) or state and
+quantify that FTAOE conflates size with craft. Blocks resubmission.**
+
+### F17. The calibration "weakness" was an artifact, and my Gate 1 correction was itself wrong. ✅ CONFIRMED
+Methodology reviewer. This one reverses an earlier finding of mine and I want it
+recorded plainly.
+
+| estimator | sample | slope | 95% CI |
+|---|---|---|---|
+| decile OLS (as run) | ≥100 poss, n=2488 | 0.426 | **[−0.288, 1.139]**, p=0.206 |
+| decile OLS | ≥300 poss, n=1691 | 0.714 | [0.095, 1.332] |
+| player-season WLS | ≥100 poss | 0.788 | [0.374, 1.202] |
+| **player-season WLS** | **≥300 poss (leaderboard threshold)** | **1.011** | **[0.512, 1.509]** |
+
+At the threshold the metric actually uses, with a possession-weighted estimator,
+the slope is **1.01**. The 0.426 is manufactured by unweighted 10-point binning
+over a sample that includes 797 sub-threshold player-seasons, and its own CI
+spans 1.
+
+The reviewer also showed my *explanation* was mechanistically wrong: regression
+dilution requires measurement error in x, and the predicted player-season rate
+has none in the classical sense; a narrow predictor range inflates the standard
+error of a slope without biasing it.
+
+**Chain of errors, for the record.** The original `experiment_record.md:61`
+claimed "diagonal (slope ~1)" — unmeasured, but roughly right. At Gate 1 I
+"corrected" it to weak calibration (slope 0.426) — measured, but with the wrong
+estimator on the wrong sample, and defended with the wrong mechanism. Gate 4
+measured it properly. Both prior versions are now superseded in
+`experiment_record.md` and in ledger §2e.
+
+**Consequences:** §6.6 and the Limitations paragraph on calibration must be
+deleted, not softened. Table 5's model-family verdict cites "calibration gets
+worse (0.211 vs 0.426)" as the reason to keep the GLM; with SE ≈ 0.31 those are
+the same number, so **that decision rationale must be withdrawn** and the GLM
+justified on other grounds (parsimony, and the rank-identical leaderboards).
+
+### F18. The rate features do not "carry almost all the signal", and their contribution is same-season target encoding. ✅ CONFIRMED
+Methodology reviewer's ablation, identical folds and anchoring:
+
+| specification | mean fold lift |
+|---|---|
+| 4 base features only (period, seconds, margin, Q4/OT) | **0.153%** |
+| + same-season LOGO opponent & crew rates (shipped) | **0.196%** |
+| + opponent & crew rates built from **training seasons only** | **0.146%** |
+
+The two rate features add 0.043 pp, i.e. 22% of the reported lift rather than
+"almost all" — and built honestly out-of-fold they add *nothing* (they cost
+0.007 pp). This quantifies F6: the reported 0.195% is a retrospective fit, not a
+prospective one.
+
+**Resolution: report the ablation. Either rebuild the features from prior
+seasons and report 0.146%, or relabel 0.195% as retrospective. Delete the
+"carry almost all the signal" sentence.**
+
+### F19. Officiating crews barely persist, which kills the practitioner claim. ✅ CONFIRMED
+Methodology reviewer, measured directly: official-season foul rate has
+within-season split-half r = **0.508** and **year-over-year r = 0.178** (0.254,
+0.185, 0.150, 0.139, 0.162). For contrast, defensive-team rate is 0.688.
+
+The crew coefficient itself is real (cluster-robust z = 5.0–7.2). But you cannot
+forecast a crew's rate at YoY 0.18, so §9's "a team can quantify how much of a
+player's variance is attributable to officiating assignment" is unsupportable on
+its own terms, independently of the causal objection in F9.
+
+### F20. The reported statistic is 2×NLL, not the Poisson deviance. ✅ CONFIRMED
+`poisson_deviance()` in `train_possession_v4_context.py:56-64` omits the
+saturated-model term. The deviance *drop* is unaffected, but the denominator is:
+true lift is **0.227%**, not 0.195%. The error runs in the conservative
+direction, which is to the paper's credit, but a quantity labelled "Poisson
+deviance" in a statistics venue must be the deviance.
+
+### F21. The lift IS distinguishable from zero, and the paper undersells it. ✅ CONFIRMED
+Cluster-robust by game (G = 7,230): per-possession gain 0.001935, SE 0.000081,
+t = 23.9, **95% CI 0.180% to 0.212%**. The paper never says this. The correct
+caveat was always effect size, not significance.
+
+---
+
 ## Tier 2 — verified errors requiring correction
 
 ### F4. "600 possessions ≈ two months" is wrong by roughly a factor of two. ✅ CONFIRMED
@@ -172,7 +268,27 @@ The devil's advocate read the same fact correctly: two different likelihoods
 agreeing to four decimals is independent **corroboration of F1**, not a coding
 error. Worth stating in the paper that way.
 
-### R2. "Reliability of 0.841 is inflated by the odd/even split." ⚠️ PARTLY VALID
+### R3. Odd/even splitting inflates split-half r by 0.033, and that is all. ✅ QUANTIFIED
+Methodology reviewer. A chronologically blocked split gives r = **0.8081**
+(K = 84) against odd/even's 0.8408 (K = 67). Method-of-moments predicts 0.8350
+from pure sampling error alone, so the excess over sampling noise is +0.006:
+there is **no meaningful shared-nuisance inflation** from opponent/crew overlap
+or the shared anchor. Report both splits; the blocked figure is the more honest
+test-retest and is still high.
+
+Also quantified: K = 67 has a player-clustered bootstrap CI of **[57, 80]**, so
+"r = 0.9 at about 600 possessions" is really **[510, 719]**, and 758 under the
+blocked split.
+
+### R4. LOGO self-contamination via the player's own later games. ❌ UNFOUNDED, measured
+The methodology reviewer checked the concern I would have raised and dismissed
+it with numbers: a player's own possessions are a mean of **0.33%** of an
+opponent's season possessions (p95 0.76%, max 1.85%), shifting the expectation
+by at most **0.61%** at the 99th percentile. An order of magnitude below the
+second margin leak already classified as immaterial. Disclose in one sentence;
+change nothing.
+
+### R2. "Reliability of 0.841 is inflated by the odd/even split." ⚠️ SUPERSEDED by R3
 The concern is real in principle (halves share opponents, crews and the same
 anchoring constant), but the perspective reviewer's own note cuts the other way:
 subtracting an expectation that differs between halves should if anything
@@ -256,11 +372,18 @@ the paper derives and never uses.
 | 2 | F4-F9 | confirmed, correctable |
 | 2 | F10 | **fixed** |
 | 2 | F11 | confirmed, needs re-run or downgrade |
+| 1 | F16 height gradient | confirmed, blocks resubmission |
+| 1 | F17 calibration reversal | confirmed, **corrects my own Gate 1 correction** |
+| 2 | F18-F21 | confirmed, correctable |
 | 3 | R1 multinomial bug | **disproved** |
-| 3 | R2 split-half inflation | partly valid, no number changes |
+| 3 | R3 split-half inflation | quantified at +0.033, benign |
+| 3 | R4 LOGO self-contamination | **unfounded**, measured |
 | 4 | F12-F15 | accepted, scoped |
 
-**Awaiting:** methodology reviewer (5th of 5).
+**All five reviews complete.** Methodology reviewer: major revision, statistical
+validity 2/5, **reproducibility 5/5** ("every headline figure reproduced exactly
+... without contacting the authors"). It ran its own analyses; the tier-1
+additions below come from it and I verified each one.
 
 **Decision required before revision:** whether to reframe to the finding the
 data supports (foul-drawing rate is reliable and fast-stabilising; context

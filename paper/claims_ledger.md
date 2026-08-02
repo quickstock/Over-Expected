@@ -206,13 +206,22 @@ what a model-selection section should contain:
 
 ---
 
-## 2e. Calibration — CORRECTION to the experiment record
+## 2e. Calibration — SUPERSEDED at Gate 4, see review_findings.md F17
 
 Artifact: `variant_model_family.json:arms.poisson_glm.calibration`, independently
 confirmed by re-running the repo's own `check_calibration.py`.
 
-`paper/experiment_record.md:61` says: *"Player-season decile calibration on OOF
-aggregates is diagonal (slope ~1)."* **This is wrong.**
+> **Gate 4 update.** This whole section was wrong, and the line it "corrected"
+> was closer to right. At the leaderboard threshold (>=300 poss) with a
+> possession-weighted regression, the calibration slope is **1.011**
+> (95% CI [0.512, 1.509]). The 0.426 below is an artifact of unweighted
+> decile binning over a sample that includes 797 sub-threshold
+> player-seasons; its own CI is [-0.288, 1.139], p = 0.206. Retained below
+> as the record of what was measured and why it misled. Do not cite K1-K5
+> as evidence of poor calibration.
+
+`paper/experiment_record.md:61` said: *"Player-season decile calibration on
+OOF aggregates is diagonal (slope ~1)."*
 
 | # | Claim | Value | Status |
 |---|---|---|---|
