@@ -542,8 +542,9 @@ metrics = json.loads(
     (Path(__file__).parent / "model_artifacts" / "headline_v4_context_metrics.json")
     .read_text()
 )
+_ART = Path(__file__).parent / "model_artifacts"
 reliability = json.loads(
-    (Path(__file__).parent / "model_artifacts" / "reliability.json").read_text()
+    (_ART / "reliability.json").read_text()
 )
 n_poss = pred.shape[0]
 all_seasons = sorted(lb["season"].unique().tolist())
@@ -553,6 +554,19 @@ all_seasons = sorted(lb["season"].unique().tolist())
 qual_counts = (
     lb[lb["possessions"] >= QUALIFY_POSS].groupby("season").size().to_dict()
 )
+# Height is the largest thing FTAOE leaves in, and the context adjustment is
+# close to a constant, so the board has to say both. Read, never hardcoded.
+_avl = json.loads((_ART / "variant_archetype_vs_linear.json").read_text())
+_vrb = json.loads((_ART / "variant_raw_baseline.json").read_text())
+_confounds = {
+    "heightCorr": _avl["heightGradient"]["headline"],
+    "heightR2": round(_avl["heightGradient"]["headline"] ** 2, 3),
+    "rawRateCorr": _vrb["agreement"]["pearsonR"],
+    "rawRateFullSeasonR": _vrb["rawRate"]["fullSeasonR"],
+    "ftaoeFullSeasonR": _vrb["ftaoe"]["fullSeasonR"],
+    "archetypeVsLinearCorr": _avl["archetypeVsLinear"]["pearson"],
+}
+
 default_season = next(
     (s2 for s2 in reversed(all_seasons) if qual_counts.get(s2, 0) >= 50),
     all_seasons[-1],
@@ -578,6 +592,9 @@ meta = {
         "yoyPairs": reliability["yoyPairs"],
         "paddingK": reliability["paddingK"],
     },
+    # What the metric does NOT adjust for. Sourced from the committed variant
+    # artifacts so the site cannot drift from them; a refit regenerates both.
+    "confounds": _confounds,
 }
 
 out = {
