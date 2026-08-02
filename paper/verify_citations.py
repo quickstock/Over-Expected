@@ -100,6 +100,32 @@ CANDIDATES = [
      "An examination of expected goals and shot efficiency in soccer", 2017,
      "expected-goals as a shot-quality baseline", None),
 
+    # --- measurement theory for sports metrics (the framework this paper needs)
+    ("franks2016meta",
+     "Meta-analytics: tools for understanding the statistical properties of "
+     "sports metrics", 2016,
+     "discrimination / stability / independence for sports metrics; the "
+     "framework the reliability section sits inside, and in the target venue",
+     None),
+    ("baumer2015openwar",
+     "openWAR: An open source system for evaluating overall player "
+     "performance in Major League Baseball", 2015,
+     "the standard for what a public, reproducible player metric looks like",
+     None),
+    ("sicilia2019deephoops",
+     "DeepHoops: Evaluating Micro-Actions in Basketball Using Deep Feature "
+     "Representations of Spatio-Temporal Data", 2019,
+     "prior art: shooting fouls modelled as terminal actions, from tracking",
+     None),
+    ("price2012subperfect",
+     "Subperfect Game: Profitable Biases of NBA Referees", 2012,
+     "referee calls respond to score state; the literature the margin "
+     "coefficient must be read against", None),
+    ("dohmen2016referee",
+     "Referee Bias", 2016,
+     "the referee-bias survey; cited where the paper declines a bias claim",
+     None),
+
     # --- calibration
     ("brier1950verification",
      "Verification of Forecasts Expressed in Terms of Probability", 1950,

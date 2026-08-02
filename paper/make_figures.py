@@ -4,8 +4,8 @@ Every figure reads a real file. Nothing is illustrative or hand-drawn.
 
   fig1_xfg_reliability.pdf     xfg_holdout_predictions.csv
   fig2_ftaoe_reliability.pdf   xfta.db + reliability.json
-  fig3_identity_variant.pdf    variant_archetype_boards.csv
-  fig4_calibration.pdf         variant_model_family.json
+  fig3_adjustments.pdf         variant_archetype_boards.csv (+ xfta.db)
+  fig4_height_gradient.pdf     variant_archetype_boards.csv (+ xfta.db)
 """
 from __future__ import annotations
 
@@ -171,71 +171,108 @@ def fig_ftaoe_reliability():
 
 
 # ------------------------------------------------------------------ fig 3
-def fig_identity():
+def _boards_with_height():
+    import sqlite3
+    from config import DB_PATH
     b = pd.read_csv(ART / "variant_archetype_boards.csv")
-    v = json.loads((ART / "variant_archetype.json").read_text())
-    rho_a = v["comparisons"][0]["spearmanRho"]
-    rho_i = v["comparisons"][1]["spearmanRho"]
+    conn = sqlite3.connect(DB_PATH)
+    ps = pd.read_sql("SELECT player_id, season, height_inches, position "
+                     "FROM player_season", conn)
+    conn.close()
+    b = b.merge(ps, left_on=["finisher_player_id", "season"],
+                right_on=["player_id", "season"])
+    b = b[b["possessions"] >= 300].copy()
+    b["raw"] = b["actual_fta"] / b["possessions"] * 100
+    return b
 
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(6.9, 3.4))
-    for ax, col, rho, lab in (
-        (a1, "archetype", rho_a, "+ height, position"),
-        (a2, "identity", rho_i, "+ prior-season FTr"),
-    ):
-        x = b["ftaoe_per_100_headline"]
-        y = b[f"ftaoe_per_100_{col}"]
-        ax.axhline(0, color=GREY, lw=0.6); ax.axvline(0, color=GREY, lw=0.6)
+
+def fig_adjustments():
+    """The paper's central figure: three attempts to adjust the raw rate, and
+    what each one actually reproduces."""
+    import statsmodels.api as sm
+    b = _boards_with_height()
+    lin = pd.Series(index=b.index, dtype=float)
+    for _, g in b.groupby("season"):
+        X = pd.get_dummies(g["position"].fillna("None"), drop_first=True)
+        X["h"] = g["height_inches"].astype(float)
+        X = sm.add_constant(X.astype(float), has_constant="add")
+        fit = sm.WLS(g["raw"], X, weights=g["possessions"]).fit()
+        lin.loc[g.index] = g["raw"] - fit.fittedvalues
+    b["linear"] = lin
+
+    panels = [
+        ("raw", "ftaoe_per_100_headline", "context-only FTAOE",
+         "raw shooting-foul FT / 100", 0.9953,
+         "context adjustment\nreproduces the raw rate"),
+        ("linear", "ftaoe_per_100_archetype", "body-type FTAOE",
+         "linear height + position residual", 0.9877,
+         "body-type adjustment\nreproduces a two-variable\nregression residual"),
+        ("ftaoe_per_100_headline", "ftaoe_per_100_identity",
+         "identity FTAOE", "context-only FTAOE", 0.8100,
+         "identity adjustment\nexplains the signal away"),
+    ]
+    fig, axes = plt.subplots(1, 3, figsize=(6.9, 2.8))
+    for ax, (xc, yc, ylab, xlab, r, note) in zip(axes, panels):
+        x, y = b[xc], b[yc]
         lim = max(abs(x).max(), abs(y).max()) * 1.04
-        ax.plot([-lim, lim], [-lim, lim], "--", color=GREY, lw=0.9, zorder=1)
-        ax.scatter(x, y, s=5, color=COOL, alpha=0.35, lw=0, zorder=2)
-        g = b[b["player_name"] == "Rudy Gobert"]
-        ax.scatter(g["ftaoe_per_100_headline"], g[f"ftaoe_per_100_{col}"],
-                   s=26, color=WARM, edgecolor="white", lw=0.7, zorder=4,
-                   label="Rudy Gobert")
+        ax.plot([-lim, lim], [-lim, lim], "--", color=GREY, lw=0.8, zorder=1)
+        ax.scatter(x, y, s=3.5, color=COOL, alpha=0.3, lw=0, zorder=2)
+        if yc.endswith("identity"):
+            g = b[b["player_name"] == "Rudy Gobert"]
+            ax.scatter(g[xc], g[yc], s=20, color=WARM, edgecolor="white",
+                       lw=0.6, zorder=4)
+            ax.annotate("Gobert", (g[xc].max(), g[yc].min()), fontsize=6.5,
+                        color=WARM, xytext=(2, -9),
+                        textcoords="offset points")
         ax.set_xlim(-lim, lim); ax.set_ylim(-lim, lim); ax.set_aspect("equal")
-        ax.set_xlabel("FTAOE/100, context-only model")
-        ax.set_title(f"{lab}\nSpearman $\\rho$ = {rho:.3f}")
-        ax.legend(loc="upper left", frameon=False)
-    a1.set_ylabel("FTAOE/100, variant model")
+        ax.set_xlabel(xlab, fontsize=7.2)
+        ax.set_ylabel(ylab, fontsize=7.2)
+        ax.set_title(f"$r$ = {r:.3f}", fontsize=8.5)
+        ax.annotate(note, (0.04, 0.97), xycoords="axes fraction", fontsize=6.0,
+                    va="top", color=INK)
+        ax.tick_params(labelsize=6.5)
     fig.tight_layout()
-    fig.savefig(OUT / "fig3_identity_variant.pdf")
+    fig.savefig(OUT / "fig3_adjustments.pdf")
     plt.close(fig)
-    print("fig3 ok")
+    print("fig3 ok (adjustments)")
 
 
 # ------------------------------------------------------------------ fig 4
-def fig_calibration():
-    m = json.loads((ART / "variant_model_family.json").read_text())
-    fig, ax = plt.subplots(figsize=(4.1, 3.5))
-    lo, hi = 0.165, 0.205
-    ax.plot([lo, hi], [lo, hi], "--", color=GREY, lw=0.9, label="identity",
-            zorder=1)
-    for arm, colr, mk, lab in (
-        ("poisson_glm", WARM, "o", "Poisson GLM"),
-        ("poisson_lgbm", COOL, "s", "Poisson LightGBM"),
-    ):
-        c = m["arms"][arm]["calibration"]
-        d = pd.DataFrame(c["deciles"])
-        # Points are the deciles; the line is the fitted slope the text quotes.
-        ax.scatter(d["predRate"], d["actualRate"], marker=mk, s=17,
-                   color=colr, alpha=0.85, lw=0, zorder=3)
-        xs = np.array([d["predRate"].min(), d["predRate"].max()])
-        ax.plot(xs, c["slope"] * xs + c["intercept"], "-", color=colr, lw=1.5,
-                zorder=2, label=f"{lab}: slope {c['slope']:.2f}")
-    ax.set_xlim(lo, hi); ax.set_ylim(lo, hi); ax.set_aspect("equal")
-    ax.set_xlabel("predicted shooting-foul FTs / possession")
-    ax.set_ylabel("observed")
-    ax.set_title("player-season deciles ($\\geq$100 poss)")
-    ax.legend(loc="upper left", frameon=False, handlelength=1.6)
+def fig_height():
+    b = _boards_with_height()
+    bins = [0, 74, 78, 81, 84, 99]
+    labs = ["6'2\" and under", "6'3-6'6", "6'7-6'9", "6'10-7'0", "7'0\" and up"]
+    b["band"] = pd.cut(b["height_inches"], bins=bins, labels=labs)
+    t = (b.groupby("band", observed=True)
+         .agg(n=("ftaoe_per_100_headline", "size"),
+              headline=("ftaoe_per_100_headline", "mean"),
+              archetype=("ftaoe_per_100_archetype", "mean"),
+              se_h=("ftaoe_per_100_headline", "sem"),
+              se_a=("ftaoe_per_100_archetype", "sem")).reset_index())
+    fig, ax = plt.subplots(figsize=(4.6, 3.0))
+    xp = np.arange(len(t))
+    ax.axhline(0, color=GREY, lw=0.7)
+    ax.errorbar(xp - 0.09, t["headline"], yerr=1.96 * t["se_h"], fmt="o",
+                color=WARM, ms=5, lw=1.2, capsize=2.5,
+                label="context-only ($r$ with height = 0.391)")
+    ax.errorbar(xp + 0.09, t["archetype"], yerr=1.96 * t["se_a"], fmt="s",
+                color=COOL, ms=4.6, lw=1.2, capsize=2.5,
+                label="+ height, position ($r$ = 0.016)")
+    ax.set_xticks(xp)
+    ax.set_xticklabels([f"{l}\n($n$={n})" for l, n in zip(t["band"], t["n"])],
+                       fontsize=6.6)
+    ax.set_ylabel("mean FTAOE per 100")
+    ax.set_xlabel("finisher height")
+    ax.legend(frameon=False, fontsize=7, loc="upper left")
     fig.tight_layout()
-    fig.savefig(OUT / "fig4_calibration.pdf")
+    fig.savefig(OUT / "fig4_height_gradient.pdf")
     plt.close(fig)
-    print("fig4 ok")
+    print("fig4 ok (height gradient)")
 
 
 if __name__ == "__main__":
     fig_xfg()
     fig_ftaoe_reliability()
-    fig_identity()
-    fig_calibration()
+    fig_adjustments()
+    fig_height()
     print(f"\nfigures in {OUT}")

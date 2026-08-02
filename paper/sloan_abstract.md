@@ -21,84 +21,86 @@ is public with unsquashed history.
 
 ## Title
 
-**Who Actually Draws Fouls? Measuring Foul-Drawing Skill from Public
-Play-by-Play, and What a Leakage Audit Cost Us**
+**Adjustments That Do Not Adjust: Foul-Drawing Is a Reliable NBA Skill
+Statistic, and Three Attempts to Correct It All Reproduced Something Simpler**
 
-## Abstract (432 words)
+## Abstract (397 words)
 
-Free-throw attempts reward volume. A player who lives at the rim draws shooting
-fouls whether or not he is any good at drawing them, so ranking players on
-free-throw attempts mostly ranks them on role. We separate the two. A model
-predicts expected shooting-foul free throws per possession from game context
-alone (period, clock, score margin, home or away, the defending team's foul rate,
-and the assigned officiating crew's foul rate) and never sees who is shooting.
-Foul-drawing skill is the residual, which we call FTAOE, anchored per season so
-the league sums to zero. Everything runs on 1,420,917 possessions across six NBA
-seasons built entirely from public play-by-play. No tracking data, no licence.
+Shooting fouls drawn per possession is one of the most reliable player statistics
+available from public NBA data. Across six seasons and 1,420,917 possessions,
+splitting each qualified player-season into odd and even games gives split-half
+r = 0.841 (n = 1,691 player-seasons from 546 players), Spearman-Brown full-season
+r = 0.914, and year-over-year r = 0.85, stabilising with a padding constant of 67
+possessions. No tracking data, no licence.
 
-Two findings matter for practitioners.
+It is also badly confounded: it correlates 0.391 with the player's height. So we
+adjusted it, three ways, and all three failed in ways worth reporting.
 
-**A leak in the public feed, and what it cost.** Auditing before publication, we
-found that the score-margin field is stamped *after* the event it describes, so
-for a made shot it already contains that shot's own points. A feature derived
-from it in our companion expected field-goal model was encoding the outcome.
-Retraining on an identical split moved holdout AUC from 0.6705 to 0.6578, about
-1.3 points of apparent skill that was never real, and changed who topped our
-published leaderboard (Butler to Jerome in 2024-25). Calibration barely moved,
-0.0040 to 0.0042, which is the tell: the leak inflated ranking without distorting
-the probability scale, so a calibration check alone would have missed it. Anyone
-building on this feed is exposed to the same bug. A second leak of the same class
-turned out to move no player-season by more than 1.03 free throws, which is the
-practical lesson: audit feature timing against the source, then size each leak
-before deciding it matters.
+**Context reproduces the raw rate.** A Poisson model on period, clock, score
+margin, venue, the defending team's foul rate and the assigned crew's foul rate
+improves on a season-mean baseline by 0.195%, which is statistically
+distinguishable from zero and practically irrelevant. The fitted expectation has
+a standard deviation of 0.73 per 100 against an observed 7.58, so it carries 0.9%
+of between-player variance and cannot reorder anyone: correlation with the
+unadjusted rate is 0.995 and the mean rank movement is 1.7 places. The reliability
+figures above therefore belong to the raw rate, not the model. The reason
+generalises: over 82 games every player faces nearly the same distribution of
+opponents and crews, so features that are genuinely informative per possession
+have almost no variance across players once a season is aggregated.
 
-**A near-useless model that yields a highly reliable metric.** Out-of-fold
-Poisson deviance improves on a season-mean baseline by only 0.195%. Read as a
-possession-level predictor that is close to nothing. Read as a measurement
-instrument it is fine: split-half r = 0.841, Spearman-Brown full-season r =
-0.914, year-over-year r = 0.85 across 1,691 qualified player-seasons, with a
-padding constant of K = 67 possessions, so a player passes r = 0.9 after roughly
-600 possessions. Individual possessions are nearly unforecastable from public
-features; players are not.
+**Body type reproduces a two-variable regression.** Adding height and position
+does remove the gradient (correlation with height 0.391 to 0.016). But regressing
+the raw rate on height and position and taking the residual requires no model at
+all, and our fitted specification reproduces that residual at r = 0.988
+(bootstrap CI [0.985, 0.990]).
 
-We also price the decision to exclude shooter identity. Adding height, position
-and prior-season free-throw rate raises per-possession fit up to ninefold while
-rank correlation with the context-only leaderboard stays at 0.906 and 0.832. The
-reason to exclude it is circularity, and Rudy Gobert is the demonstration: told
-his prior-season rate, the model expects him to draw fouls, and his 2022-23 goes
-from +20.06 to -15.70 per 100.
+**Identity explains the signal away.** Adding prior-season foul rate moves Rudy
+Gobert from +20.06 to −15.70 per 100. Prior-season rate measures the thing being
+measured.
+
+Every failure was detectable in advance from two numbers: the share of
+between-subject variance carried by the fitted expectation, and the correlation
+between the proposed residual and the simplest thing it could have been. Both are
+one line. Per-event fit statistics gave no warning at all.
+
+We separately report a leakage audit of a companion model: the public feed stamps
+score margin after the event it describes, and removing that feature moved
+holdout AUC from 0.6705 to 0.6578 while leaving calibration untouched, which is
+exactly why a calibration check alone would have missed it. It changed a
+published leaderboard.
 
 ---
 
 ## Figure 1 (of 2)
 
-`figures/fig2_ftaoe_reliability.pdf`
+`figures/fig3_adjustments.pdf`
 
-**Caption.** (a) Odd-game against even-game FTAOE per 100 for 1,691 qualified
-player-seasons, split-half r = 0.841. (b) Implied reliability against sample
-size, n/(n+K) with K = 67 possessions: the metric passes r = 0.5 at about 67
-finisher-possessions and r = 0.9 at about 600.
+**Caption.** Each adjustment against what it reproduces. (a) The context model
+against the unadjusted rate, r = 0.995. (b) The body-type model against an
+ordinary weighted regression residual on height and position, r = 0.988. (c) The
+identity model against the context model, Gobert's six seasons marked.
 
 ## Figure 2 (of 2)
 
-`figures/fig3_identity_variant.pdf`
+`figures/fig4_height_gradient.pdf`
 
-**Caption.** FTAOE per 100 under the context-only model against two
-identity-aware variants. Supplying prior-season free-throw rate explains the
-signal away by construction; Gobert's six seasons are highlighted.
+**Caption.** Mean adjusted rate by finisher height with 95% intervals. The
+context specification carries the full body-type gradient; adding height and
+position removes it, and reproduces a two-variable regression in doing so.
 
 ---
 
 ## Notes before submitting
 
-1. **Word count is 432, under the 500 limit.** Recount after any edit.
+1. **Word count is 397, under the 500 limit.** Recount after any edit.
 2. Both figures are already generated by `make_figures.py` and are used
    unchanged in the canonical and conference drafts, so the abstract cannot drift
    from them.
-3. The abstract deliberately leads with the leakage finding rather than the
-   metric. Sloan's audience rewards a transferable methods lesson, and "the
-   public feed leaks and here is what it cost us" is the more unusual
-   contribution. If the reviewers want the metric foregrounded instead, swap the
-   order of the two bold paragraphs; no numbers change.
+3. Reframed 2026-08-02 after adversarial review. The original abstract claimed
+   a context-adjusted metric; that claim did not survive (see
+   `review_findings.md` F1, F16, F22). This version leads with the reliable raw
+   statistic and reports the three failed adjustments as the finding, which is
+   what the data supports and, for a practitioner audience, the more useful
+   result: it tells a team not to buy the adjusted version.
 4. Ask the organisers for the full-paper page limit rather than assuming. The
    4-page conference derivative fits any plausible answer.

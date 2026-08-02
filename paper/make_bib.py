@@ -35,9 +35,18 @@ SMART = {"’": "'", "‘": "'", "“": '"', "”": '"',
 
 
 def deunicode(s: str) -> str:
-    """T1/EC fonts have no glyph for curly quotes. Normalise to ASCII."""
+    """T1/EC fonts have no glyph for curly quotes. Normalise to ASCII, decode
+    the HTML entities CrossRef stores in some records, and escape the
+    characters that are special to LaTeX."""
+    import html
+    s = html.unescape(s)
     for a, b in SMART.items():
         s = s.replace(a, b)
+    # Escape LaTeX specials. Backslash first so we do not double-escape.
+    s = s.replace("\\", r"\textbackslash{}")
+    for ch in "&%$#_{}":
+        s = s.replace(ch, "\\" + ch)
+    s = s.replace("~", r"\textasciitilde{}").replace("^", r"\textasciicircum{}")
     return s
 
 
