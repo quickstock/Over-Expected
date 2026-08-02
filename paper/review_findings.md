@@ -385,7 +385,44 @@ validity 2/5, **reproducibility 5/5** ("every headline figure reproduced exactly
 ... without contacting the authors"). It ran its own analyses; the tier-1
 additions below come from it and I verified each one.
 
-**Decision required before revision:** whether to reframe to the finding the
+## F22. The archetype rescue fails the same way. ✅ MEASURED, decides the reframe
+
+Decision rule set by Kevin: ship the archetype specification (option B) only if
+archetype-FTAOE clears a trivial linear body-type adjustment by a real,
+distinguishable margin. Bar: Pearson r < 0.97 against the linear residual with
+the player-clustered bootstrap CI excluding 0.97.
+
+Linear baseline: raw shooting-foul FT/100 residualised on height + position
+within season, possession-weighted. No Poisson model, no possession grain, no
+context features.
+
+| comparison | Pearson | 95% CI (player-clustered) | top-20 |
+|---|---|---|---|
+| **archetype vs linear residual** | **+0.9877** | **[+0.9853, +0.9897]** | 18/20 |
+| headline vs raw rate | +0.9953 | [+0.9946, +0.9959] | 16/20 |
+| archetype vs raw rate | +0.9167 | [+0.9010, +0.9310] | 10/20 |
+| linear residual vs raw rate | +0.9142 | [+0.8988, +0.9278] | 12/20 |
+
+**Fails, and not marginally: the entire CI sits above the 0.97 bar.** The
+archetype model reproduces a two-variable regression residual to r = 0.988, and
+it moves the metric away from the raw rate by almost exactly as much as the
+linear adjustment does (0.9167 vs 0.9142).
+
+Height gradients confirm the mechanism: raw +0.386, headline +0.391, linear
++0.027, archetype +0.016. The archetype arm and the hand-rolled linear
+adjustment are doing the same job.
+
+**Decision: option A.** Two independent attempts to rescue a signal from the raw
+rate both collapse onto trivial transforms, for structurally the same reason.
+That symmetry is a better paper than either rescue would have been, because the
+negative result now has two instances and a stated mechanism rather than one.
+
+Artifact: `model_artifacts/variant_archetype_vs_linear.json`, script
+`variant_archetype_vs_linear.py`.
+
+---
+
+**Superseded decision note:** whether to reframe to the finding the
 data supports (foul-drawing rate is reliable and fast-stabilising; context
 adjustment does not move it, and here is the structural reason) or to fit the
 model the current motivation describes. The second is a research project, not a

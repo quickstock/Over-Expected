@@ -1,0 +1,101 @@
+{
+  "qualifyPossessions": 300,
+  "nPlayerSeasons": 1691,
+  "nPlayers": 546,
+  "heightGradient": {
+    "raw_per100": 0.3858,
+    "linear": 0.0266,
+    "headline": 0.3913,
+    "archetype": 0.0157
+  },
+  "sdPer100": {
+    "raw_per100": 7.581,
+    "linear": 6.867,
+    "headline": 7.566,
+    "archetype": 6.923
+  },
+  "archetypeVsLinear": {
+    "pearson": 0.9877,
+    "spearman": 0.9858,
+    "rankShiftMean": 9.67,
+    "rankShiftP95": 29.0,
+    "rankShiftMax": 83.0,
+    "topNOverlap": {
+      "top10": 9,
+      "top20": 18,
+      "top50": 46
+    },
+    "pearsonCI": [
+      0.9853,
+      0.9897
+    ]
+  },
+  "reference": {
+    "headline_vs_raw_per100": {
+      "pearson": 0.9953,
+      "spearman": 0.9947,
+      "rankShiftMean": 1.74,
+      "rankShiftP95": 5.0,
+      "rankShiftMax": 14.0,
+      "topNOverlap": {
+        "top10": 9,
+        "top20": 16,
+        "top50": 46
+      },
+      "pearsonCI": [
+        0.9946,
+        0.9959
+      ]
+    },
+    "archetype_vs_raw_per100": {
+      "pearson": 0.9167,
+      "spearman": 0.9036,
+      "rankShiftMean": 26.39,
+      "rankShiftP95": 70.5,
+      "rankShiftMax": 147.0,
+      "topNOverlap": {
+        "top10": 6,
+        "top20": 10,
+        "top50": 36
+      },
+      "pearsonCI": [
+        0.901,
+        0.931
+      ]
+    },
+    "linear_vs_raw_per100": {
+      "pearson": 0.9142,
+      "spearman": 0.9002,
+      "rankShiftMean": 26.33,
+      "rankShiftP95": 72.0,
+      "rankShiftMax": 161.0,
+      "topNOverlap": {
+        "top10": 5,
+        "top20": 12,
+        "top50": 37
+      },
+      "pearsonCI": [
+        0.8988,
+        0.9278
+      ]
+    },
+    "archetype_vs_headline": {
+      "pearson": 0.9182,
+      "spearman": 0.9061,
+      "rankShiftMean": 26.82,
+      "rankShiftP95": 71.5,
+      "rankShiftMax": 149.0,
+      "topNOverlap": {
+        "top10": 6,
+        "top20": 11,
+        "top50": 37
+      },
+      "pearsonCI": [
+        0.9028,
+        0.9323
+      ]
+    }
+  },
+  "verdict": "archetype does NOT clear the linear baseline",
+  "bar": "Pearson r < 0.97 against the linear residual with the player-clustered bootstrap CI excluding 0.97"
+}
