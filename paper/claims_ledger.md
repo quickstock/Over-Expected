@@ -448,6 +448,10 @@ None of the three supports an 18.83% headline.
 ## 13. Changelog
 
 - **2026-08-02** — Gate 1 built. Headline finding: the 18.83% lift is superseded (§0, §3).
+- **2026-08-02** — Gate 2: canonical draft written under framing #3, 12 pages,
+  compiled. 24 citations, every one resolved against CrossRef or OpenAlex; 6
+  candidates dropped for failing verification. 21/22 spot-checked numbers
+  reconcile against artifacts (the 22nd is a rounding presentation, not drift).
 - **2026-08-02** — Framing #3 approved. U1 and U2 re-run against the current model
   and are now citable (§2c, §2d); O2 and O3 resolved; O3 produced a correction to
   the experiment record (§2e). Preprint destination changed arXiv → Zenodo (§10).
