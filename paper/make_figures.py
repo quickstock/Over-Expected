@@ -27,6 +27,15 @@ from config import DB_PATH, SEASONS  # noqa: E402
 ART = ROOT / "model_artifacts"
 OUT = Path(__file__).parent / "figures"
 OUT.mkdir(exist_ok=True)
+# JQAS requires figures uploaded separately as raster at >=300 dpi. Emit both
+# from the same call so the vector and raster copies cannot diverge.
+RASTER = OUT / "raster_300dpi"
+RASTER.mkdir(exist_ok=True)
+
+
+def save(fig, name):
+    fig.savefig(OUT / f"{name}.pdf")
+    fig.savefig(RASTER / f"{name}.png", dpi=400)
 
 WARM, COOL, GREY, INK = "#c0392b", "#2c6fa8", "#9aa0a6", "#222222"
 
@@ -109,7 +118,7 @@ def fig_xfg():
     a2.spines["left"].set_visible(False)
     a2.tick_params(axis="y", length=0)
     fig.tight_layout()
-    fig.savefig(OUT / "fig1_xfg_reliability.pdf")
+    save(fig, "fig1_xfg_reliability")
     plt.close(fig)
     print(f"fig1 ok (backcourt excluded from panel b: {n_bc:,} attempts)")
 
@@ -165,7 +174,7 @@ def fig_ftaoe_reliability():
     a2.set_ylabel("implied reliability  $n/(n+K)$")
     a2.set_title(f"(b) stabilisation, $K$ = {K} possessions")
     fig.tight_layout()
-    fig.savefig(OUT / "fig2_ftaoe_reliability.pdf")
+    save(fig, "fig2_ftaoe_reliability")
     plt.close(fig)
     print(f"fig2 ok (split-half r={np.corrcoef(q['r0'], q['r1'])[0,1]:.4f})")
 
@@ -232,7 +241,7 @@ def fig_adjustments():
                     va="top", color=INK)
         ax.tick_params(labelsize=6.5)
     fig.tight_layout()
-    fig.savefig(OUT / "fig3_adjustments.pdf")
+    save(fig, "fig3_adjustments")
     plt.close(fig)
     print("fig3 ok (adjustments)")
 
@@ -265,7 +274,7 @@ def fig_height():
     ax.set_xlabel("finisher height")
     ax.legend(frameon=False, fontsize=7, loc="upper left")
     fig.tight_layout()
-    fig.savefig(OUT / "fig4_height_gradient.pdf")
+    save(fig, "fig4_height_gradient")
     plt.close(fig)
     print("fig4 ok (height gradient)")
 
