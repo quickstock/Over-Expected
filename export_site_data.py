@@ -480,20 +480,54 @@ def team_side(key):
 off = team_side("offense_team_id")
 def_ = team_side("def_team_id")
 
+# Team-level shot-value suite: what the looks a team generated were worth
+# (selection) and FG points over expected (making), per 100 offensive
+# possessions, centred on the possession-weighted league mean of the season
+# so the columns read vs-league like drawn/conceded do. Sourced from
+# team_shot_value (written by shot_value.py, same xFG cross-fit as the
+# player suite) with the same possession denominator as the FT columns.
+_tsv = pd.read_sql(
+    "SELECT team_id, season, off_act_fg_pts, off_exp_fg_pts FROM team_shot_value",
+    conn,
+)
+_tsv_by_key = {
+    (int(r.team_id), r.season): (float(r.off_exp_fg_pts), float(r.off_act_fg_pts))
+    for r in _tsv.itertuples()
+}
+
 teams_out = {}
 for season in sorted(off["season"].unique()):
     o = off[off["season"] == season].set_index("offense_team_id")
     d = def_[def_["season"] == season].set_index("def_team_id")
+    valid = [
+        tid for tid in o.index
+        if tid in TEAM_ABBREV and tid in d.index and (int(tid), season) in _tsv_by_key
+    ]
+    lg_poss = sum(int(o.loc[t, "poss"]) for t in valid)
+    lg_exp = sum(_tsv_by_key[(int(t), season)][0] for t in valid)
+    lg_act = sum(_tsv_by_key[(int(t), season)][1] for t in valid)
+    lg_sv100 = lg_exp / lg_poss * 100 if lg_poss else 0.0
+    lg_make100 = (lg_act - lg_exp) / lg_poss * 100 if lg_poss else 0.0
     rows = []
     for tid in o.index:
         if tid not in TEAM_ABBREV or tid not in d.index:
             continue
-        rows.append({
+        poss = int(o.loc[tid, "poss"])
+        row = {
             "team": TEAM_ABBREV[tid],
             "drawn": round(float(o.loc[tid, "per100"]), 2),
             "conceded": round(float(d.loc[tid, "per100"]), 2),
-            "poss": int(o.loc[tid, "poss"]),
-        })
+            "poss": poss,
+        }
+        tsv = _tsv_by_key.get((int(tid), season))
+        if tsv and poss:
+            exp_pts, act_pts = tsv
+            row["sv100"] = round(exp_pts / poss * 100 - lg_sv100, 2)
+            row["make100"] = round((act_pts - exp_pts) / poss * 100 - lg_make100, 2)
+        else:
+            row["sv100"] = None
+            row["make100"] = None
+        rows.append(row)
     rows.sort(key=lambda r: -r["drawn"])
     teams_out[season] = rows
 

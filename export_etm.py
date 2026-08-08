@@ -116,7 +116,7 @@ def main():
                 "share": emeta["distinguishableShare"],
                 "note": ("ETM is >= 0 by construction, so every team's interval "
                          "excludes zero and this share is 100% by design. It is "
-                         "reported for completeness, not as a finding — the "
+                         "reported for completeness rather than as a finding. The "
                          "question that matters is whether teams separate from "
                          "each other, which is what the tiers answer."),
             },

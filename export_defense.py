@@ -71,7 +71,7 @@ def main():
                 "This layer needs shot-level expected-points against a "
                 "reconstructed five-man defensive lineup. No European league "
                 "publishes the possession-level data it requires, so there is "
-                "nothing to approximate from — this is absent, not pending."),
+                "nothing here to approximate from. Absent, not pending."),
             "aggregationLevel": "team-season",
             "seasons": seasons,
             "nTeamSeasons": tmeta["nTeamSeasons"],

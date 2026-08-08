@@ -173,7 +173,7 @@ def main():
                     "the regression-adjusted player defensive signal."),
         },
         "notModelled": [
-            "turnovers forced and defensive rebounding — they live in the "
+            "turnovers forced and defensive rebounding: they live in the "
             "play-by-play parquet rather than SQL",
             "shot alteration vs shot avoidance: a defence that forces misses "
             "and one that prevents attempts look identical here, and no public "
