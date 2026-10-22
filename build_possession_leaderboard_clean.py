@@ -1,11 +1,10 @@
-"""Build leaderboard from the LEAK-CLEAN OOF predictions.
-
-Parallel of build_possession_leaderboard.py but reads from
-predictions_poss_clean (the Poisson-GLM refit) instead of
-predictions_poss (the leaky LightGBM). Writes
+"""Build the FTAOE leaderboard: actual shooting-foul FTs minus the shot-diet
+expectation (diet_game, from build_diet_expected.py). Writes
 player_season_xfta_poss_lb_clean.
 
-Used for the Step 0.4 side-by-side top-20 comparison.
+Until 2026-10-22 the expectation was the sum of the context model's
+per-possession predictions (predictions_poss_clean), which left FTAOE r 0.995
+with the raw rate. That model still feeds the team and referee views.
 """
 import sqlite3
 import pandas as pd
@@ -18,22 +17,10 @@ roll = pd.read_sql("""
     FROM player_season_xfta_poss
 """, conn)
 
-oof = pd.read_sql(
-    "SELECT game_id, possession_number, xfta FROM predictions_poss_clean",
+xfta_by_player_season = pd.read_sql(
+    "SELECT player_id, season, SUM(xft) AS xfta_total FROM diet_game "
+    "GROUP BY player_id, season",
     conn,
-)
-fin = pd.read_sql(
-    "SELECT p.game_id, p.possession_number, p.finisher_player_id, g.season "
-    "FROM possessions p JOIN games g ON p.game_id = g.game_id",
-    conn,
-)
-fin = fin.dropna(subset=["finisher_player_id"])
-fin["finisher_player_id"] = fin["finisher_player_id"].astype(int)
-oof = oof.merge(fin, on=["game_id", "possession_number"], how="inner")
-xfta_by_player_season = (
-    oof.groupby(["finisher_player_id", "season"])["xfta"].sum()
-    .reset_index()
-    .rename(columns={"finisher_player_id": "player_id", "xfta": "xfta_total"})
 )
 roll = roll.merge(xfta_by_player_season, on=["player_id", "season"], how="left")
 roll["xfta_total"] = roll["xfta_total"].fillna(0.0)

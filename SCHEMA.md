@@ -12,7 +12,8 @@ build_tables.py               -> games, shots, training_fga, player_season
 build_possessions_v3.py       -> possessions  (per-possession shooting-foul target)
 build_training_possessions_v2.py -> training_possessions_v2 (possession features)
 backfill_score_margin.py      -> fills shots.score_margin from play-by-play
-train_possession_v4_context.py-> predictions_poss_clean  (expected FTA per possession)
+train_possession_v4_context.py-> predictions_poss_clean  (context model: team + referee views)
+build_diet_expected.py        -> diet_game, diet_rates (the FTAOE baseline: shot diet)
 build_possession_leaderboard_clean.py -> player_season_xfta_poss_lb_clean (FTAOE board)
 build_style_adjusted.py       -> style_expected  (attack-profile baseline)
 build_player_ft.py            -> player_season_ft  (season FT%)
@@ -87,12 +88,22 @@ this for per-player charged-FGA shot zones.
 ## Model outputs
 
 ### predictions_poss_clean (1,420,917)
-`game_id, possession_number, season, sfta, xfta`. The headline FTAOE model's
+`game_id, possession_number, season, sfta, xfta`. The context model's
 out-of-fold expected free throws per possession, leak-free season cross-fit
-(written by `train_possession_v4_context.py`). FTAOE = `sfta - xfta`.
+(written by `train_possession_v4_context.py`). Since 2026-10-22 it feeds only
+the team and referee views; it was FTAOE's baseline until then, and left FTAOE
+r 0.995 with the raw rate.
+
+### diet_game / diet_rates
+`diet_game(game_id, player_id, season, xft)`: expected shooting-foul FTs per
+player-game from shot diet, written by `build_diet_expected.py`, summing
+exactly to the player-season. `diet_rates(season, zone, attempts, fts, rate,
+propensity, anchor)`: league FTs per attempt by zone (rim, paint, mid, three)
+with fouled misses counted back in as attempts. This is FTAOE's baseline.
 
 ### player_season_xfta_poss_lb_clean (3,566)
-The FTAOE leaderboard, one row per qualified player-season.
+The FTAOE leaderboard, one row per qualified player-season; `xfta_total` is the
+sum of `diet_game.xft`.
 `player_id, season, possessions, actual_fta_from_fouls, xfta_total, ftaoe,
 ftaoe_per_100, ftaoe_rank, player_name, position`. Anchored per season so the
 league sits at zero and seasons are comparable.

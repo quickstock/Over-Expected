@@ -25,17 +25,7 @@ from config import DB_PATH
 QUALIFY_POSS = 300  # threshold for percentile + player pages
 OUT = Path(__file__).parent / "site" / "public" / "data.json"
 
-# Static stats.nba.com franchise id -> abbreviation. Public constants, not data.
-TEAM_ABBREV = {
-    1610612737: "ATL", 1610612738: "BOS", 1610612739: "CLE", 1610612740: "NOP",
-    1610612741: "CHI", 1610612742: "DAL", 1610612743: "DEN", 1610612744: "GSW",
-    1610612745: "HOU", 1610612746: "LAC", 1610612747: "LAL", 1610612748: "MIA",
-    1610612749: "MIL", 1610612750: "MIN", 1610612751: "BKN", 1610612752: "NYK",
-    1610612753: "ORL", 1610612754: "IND", 1610612755: "PHI", 1610612756: "PHX",
-    1610612757: "POR", 1610612758: "SAC", 1610612759: "SAS", 1610612760: "OKC",
-    1610612761: "TOR", 1610612762: "UTA", 1610612763: "MEM", 1610612764: "WAS",
-    1610612765: "DET", 1610612766: "CHA",
-}
+from config import TEAM_ABBREV  # noqa: E402
 
 conn = sqlite3.connect(DB_PATH)
 
@@ -132,19 +122,22 @@ qual_keys = set(zip(qualified["player_id"], qualified["season"]))
 
 per_game = pd.read_sql(
     """SELECT p.finisher_player_id AS player_id, g.season, p.game_id,
-              SUM(p.sfta) AS actual, SUM(pr.xfta) AS xfta,
-              COUNT(*) AS poss
+              SUM(p.sfta) AS actual, COUNT(*) AS poss
        FROM possessions p
        JOIN games g ON g.GAME_ID = p.game_id
-       JOIN predictions_poss_clean pr
-         ON pr.game_id = p.game_id
-        AND pr.possession_number = p.possession_number
        WHERE p.finisher_player_id IS NOT NULL
        GROUP BY p.finisher_player_id, g.season, p.game_id
        ORDER BY p.game_id""",
     conn,
 )
 per_game["player_id"] = per_game["player_id"].astype(int)
+# Expected FTs per game from the shot-diet baseline; a game's expectation
+# comes from that game's attempts, so a player's games sum to his season.
+diet_game = pd.read_sql(
+    "SELECT game_id, player_id, xft AS xfta FROM diet_game", conn)
+diet_game["player_id"] = diet_game["player_id"].astype(int)
+per_game = per_game.merge(diet_game, on=["game_id", "player_id"], how="left")
+per_game["xfta"] = per_game["xfta"].fillna(0.0)
 
 # Per-(player, game) FG points from the shot-value suite, to enrich each game
 # tuple with the shot-making side. Absent if shot_value.py hasn't run.
@@ -290,11 +283,17 @@ pred = pd.read_sql(
        WHERE p.finisher_player_id IS NOT NULL""",
     conn,
 )
-pred["bin"] = pd.qcut(pred["xfta"], 10, duplicates="drop")
+# Calibration of the FTAOE baseline at the grain it is used: qualified
+# player-seasons in deciles of expected FTs per possession (shot diet), against
+# actual. `pred` (the context model) still supplies the league rates below.
+_cal = lb[lb["possessions"] >= QUALIFY_POSS].assign(
+    exp_rate=lambda d: d.xfta_total / d.possessions,
+    act_rate=lambda d: d.actual_fta_from_fouls / d.possessions)
+_cal["bin"] = pd.qcut(_cal["exp_rate"], 10, duplicates="drop")
 cal = (
-    pred.groupby("bin", observed=True)
-    .agg(pred_mean=("xfta", "mean"), actual_mean=("sfta", "mean"),
-         n=("sfta", "size"))
+    _cal.groupby("bin", observed=True)
+    .agg(pred_mean=("exp_rate", "mean"), actual_mean=("act_rate", "mean"),
+         n=("exp_rate", "size"))
     .reset_index(drop=True)
 )
 calibration = [
@@ -577,10 +576,39 @@ metrics = json.loads(
     .read_text()
 )
 _ART = Path(__file__).parent / "model_artifacts"
-reliability = json.loads(
-    (_ART / "reliability.json").read_text()
-)
 n_poss = pred.shape[0]
+
+# Reliability of FTAOE as shipped (shot-diet baseline), computed from the
+# per-game series above rather than read from the paper's artifacts, which
+# describe the retired context-only baseline.
+_halves = []
+for (pid, season), g in per_game.groupby(["player_id", "season"]):
+    if (pid, season) not in qual_keys or len(g) < 10:
+        continue
+    odd, even = g.iloc[::2], g.iloc[1::2]
+    _halves.append((
+        (odd.actual.sum() - odd.xfta.sum()) / odd.poss.sum() * 100,
+        (even.actual.sum() - even.xfta.sum()) / even.poss.sum() * 100,
+        (odd.poss.sum() + even.poss.sum()) / 2))
+_h = pd.DataFrame(_halves, columns=["a", "b", "n"])
+_r_half = float(_h.a.corr(_h.b))
+_qlb = lb[lb["possessions"] >= QUALIFY_POSS]
+_yoy = []
+for s1, s2 in zip(sorted(_qlb.season.unique()), sorted(_qlb.season.unique())[1:]):
+    a = _qlb[_qlb.season == s1].set_index("player_id")["ftaoe_per_100"]
+    b = _qlb[_qlb.season == s2].set_index("player_id")["ftaoe_per_100"]
+    common = a.index.intersection(b.index)
+    if len(common) > 2:
+        _yoy.append({"pair": f"{s1} to {s2}",
+                     "r": round(float(a[common].corr(b[common])), 3),
+                     "n": int(len(common))})
+reliability = {
+    "fullSeasonR": round(2 * _r_half / (1 + _r_half), 3),
+    "yoyMeanR": round(float(np.mean([p["r"] for p in _yoy])), 3),
+    "yoyPairs": _yoy,
+    # possessions at which the season rate is half signal: n_half (1 - r) / r
+    "paddingK": int(round(_h.n.mean() * (1 - _r_half) / _r_half)),
+}
 all_seasons = sorted(lb["season"].unique().tolist())
 # The site's default season: latest with >= 50 qualified players, so a
 # brand-new October season stays selectable but does not take over the
@@ -588,17 +616,29 @@ all_seasons = sorted(lb["season"].unique().tolist())
 qual_counts = (
     lb[lb["possessions"] >= QUALIFY_POSS].groupby("season").size().to_dict()
 )
-# Height is the largest thing FTAOE leaves in, and the context adjustment is
-# close to a constant, so the board has to say both. Read, never hardcoded.
-_avl = json.loads((_ART / "variant_archetype_vs_linear.json").read_text())
+# What the shot-diet baseline does and does not take out, measured on the
+# qualified rows as shipped. The retired context baseline's figures (raw-rate
+# r 0.995, height r 0.39) come from the paper's artifacts, for the history.
 _vrb = json.loads((_ART / "variant_raw_baseline.json").read_text())
+_avl = json.loads((_ART / "variant_archetype_vs_linear.json").read_text())
+_heights = pd.read_sql(
+    "SELECT player_id, season, height_inches FROM player_season", conn)
+_heights["player_id"] = _heights["player_id"].astype(int)
+_cq = _qlb.merge(_heights, on=["player_id", "season"], how="left")
+_cq["raw100"] = _cq["actual_fta_from_fouls"] / _cq["possessions"] * 100
 _confounds = {
-    "heightCorr": _avl["heightGradient"]["headline"],
-    "heightR2": round(_avl["heightGradient"]["headline"] ** 2, 3),
-    "rawRateCorr": _vrb["agreement"]["pearsonR"],
-    "rawRateFullSeasonR": _vrb["rawRate"]["fullSeasonR"],
-    "ftaoeFullSeasonR": _vrb["ftaoe"]["fullSeasonR"],
-    "archetypeVsLinearCorr": _avl["archetypeVsLinear"]["pearson"],
+    "rawRateCorr": round(float(_cq.ftaoe_per_100.corr(_cq.raw100)), 3),
+    "heightCorr": round(float(_cq.ftaoe_per_100.corr(_cq.height_inches)), 3),
+    "rawHeightCorr": round(float(_cq.raw100.corr(_cq.height_inches)), 3),
+    "trackingCorr": round(float(_cq.ftaoe_per_100.corr(_cq.sadj_per100)), 3),
+    "contextRawRateCorr": _vrb["agreement"]["pearsonR"],
+    "contextHeightCorr": _avl["heightGradient"]["headline"],
+}
+# League free throws per attempt by zone, the expectation's building blocks.
+_rates = pd.read_sql("SELECT season, zone, rate FROM diet_rates", conn)
+diet_rates = {
+    season: {r.zone: round(float(r.rate), 3) for r in grp.itertuples()}
+    for season, grp in _rates.groupby("season")
 }
 
 default_season = next(
@@ -626,9 +666,8 @@ meta = {
         "yoyPairs": reliability["yoyPairs"],
         "paddingK": reliability["paddingK"],
     },
-    # What the metric does NOT adjust for. Sourced from the committed variant
-    # artifacts so the site cannot drift from them; a refit regenerates both.
     "confounds": _confounds,
+    "dietRates": diet_rates,
 }
 
 out = {
