@@ -100,7 +100,8 @@ def _retry_call(fn, name, max_retries=3):
 def pull_game_list(season: str):
     """Pull all regular-season game IDs for a season."""
     path = os.path.join(CACHE_DIR, "seasons", f"games_{season}.parquet")
-    if os.path.exists(path):
+    # the current season keeps adding games; never trust a frozen list
+    if season != SEASONS[-1] and os.path.exists(path):
         logger.info("Game list %s already cached (%s)", season, path)
         return pd.read_parquet(path)
 
@@ -167,7 +168,8 @@ def pull_shotchart_player_season(player_id: int, season: str):
     """Pull shotchartdetail for one player-season. Returns DataFrame or None if empty."""
     safe_name = f"{player_id}_{season.replace('-', '_')}"
     path = os.path.join(CACHE_DIR, "shots", f"{safe_name}.parquet")
-    if os.path.exists(path):
+    # a current-season shot chart grows every game; refetch it each pull
+    if season != SEASONS[-1] and os.path.exists(path):
         logger.debug("Shot chart %s already cached", safe_name)
         return pd.read_parquet(path)
 
@@ -198,7 +200,8 @@ def pull_shotchart_player_season(player_id: int, season: str):
 def _get_player_list_for_season(season: str):
     """Get list of all player IDs active in a season."""
     path = os.path.join(CACHE_DIR, "seasons", f"players_{season}.parquet")
-    if os.path.exists(path):
+    # players debut all season long; rediscover them for the current season
+    if season != SEASONS[-1] and os.path.exists(path):
         return pd.read_parquet(path)
 
     logger.info("Discovering players for %s ...", season)

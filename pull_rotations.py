@@ -5,6 +5,7 @@ pull.py. Rotation rows are the authoritative on/off record: IN/OUT_TIME_REAL
 are tenths of a second of elapsed game time (Q1 start = 0, regulation end
 = 28800, each OT adds 3000).
 """
+import argparse
 import os
 import sqlite3
 import time
@@ -32,10 +33,18 @@ def pull_one(game_id: str) -> None:
 
 
 def main():
+    # --season limits the pull to one season's games. The weekly job passes
+    # the current season: rotations are an optional upgrade over the pbp
+    # sub timeline, and walking all seasons through this throttled endpoint
+    # costs hours of timeouts for no change.
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season", choices=config.SEASONS, default=None)
+    season = ap.parse_args().season
     os.makedirs(OUT_DIR, exist_ok=True)
     con = sqlite3.connect(config.DB_PATH)
     game_ids = [r[0] for r in con.execute(
-        "SELECT GAME_ID FROM games ORDER BY GAME_ID")]
+        "SELECT GAME_ID FROM games WHERE ? IS NULL OR season = ? "
+        "ORDER BY GAME_ID", (season, season))]
     con.close()
     fails = []
     for i, gid in enumerate(game_ids, 1):

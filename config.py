@@ -100,5 +100,18 @@ import os
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(_REPO_ROOT, "xfta.db")
 
+
+def layer_seasons() -> list:
+    """Seasons the platform layers (RAPM/lineups, value, decision EV, team
+    defence) fit: every season up to the base export's defaultSeason. A newer
+    season has not yet cleared the qualified-player count that rolls the site
+    over to it, and a handful of games cannot support the layers' per-season
+    fits (RAPM's 10-fold game CV goes singular on a two-game season). Reads the
+    export, which the weekly job writes before the layers run."""
+    import json
+    with open(os.path.join(_REPO_ROOT, "site", "public", "data.json")) as fh:
+        default = json.load(fh)["meta"]["defaultSeason"]
+    return [s for s in SEASONS if s <= default]
+
 # Gate A test game
 GATE_A_GAME_ID = "0022300001"

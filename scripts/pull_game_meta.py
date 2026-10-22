@@ -1,5 +1,12 @@
-"""Pull per-game meta (officials + home/away team ids) from the NBA
-liveData CDN boxscore feed. Cached per game; writes the game_meta table.
+"""Pull per-game meta (officials + home/away team ids) from stats.nba.com's
+boxscoresummaryv3. Cached per game; writes the game_meta table.
+
+Source history: the cache was first filled from the cdn.nba.com liveData
+boxscore feed, which since October 2026 answers Akamai "Access Denied" to this
+machine, a real browser included. boxscoresummaryv3 carries the same fields
+(personId, name, team ids) and reproduces cached liveData rows exactly, officials
+order included. Not v2: boxscoresummaryv2 returns no officials for late
+2025-26 games.
 
 Usage: python3 scripts/pull_game_meta.py
 """
@@ -11,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 
-import requests
+from nba_api.stats.library.http import NBAStatsHTTP
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -20,30 +27,21 @@ from config import DB_PATH, CACHE_DIR  # noqa: E402
 CACHE = ROOT / CACHE_DIR / "game_meta"
 CACHE.mkdir(parents=True, exist_ok=True)
 
-HEADERS = {
-    "Referer": "https://www.nba.com/",
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-    ),
-}
-URL = "https://cdn.nba.com/static/json/liveData/boxscore/boxscore_{gid}.json"
-
-
 def fetch(gid: str) -> dict | None:
     path = CACHE / f"{gid}.json"
     if path.exists():
         return json.loads(path.read_text())
     for attempt in range(3):
         try:
-            r = requests.get(URL.format(gid=gid), headers=HEADERS, timeout=30)
-            if r.status_code != 200:
-                raise RuntimeError(f"http {r.status_code}")
-            g = r.json()["game"]
+            g = NBAStatsHTTP().send_api_request(
+                endpoint="boxscoresummaryv3",
+                parameters={"GameID": gid, "LeagueID": "00"},
+                timeout=60,
+            ).get_dict()["boxScoreSummary"]
             row = {
                 "game_id": gid,
-                "home_team_id": g["homeTeam"]["teamId"],
-                "away_team_id": g["awayTeam"]["teamId"],
+                "home_team_id": g["homeTeamId"],
+                "away_team_id": g["awayTeamId"],
                 "officials": [
                     {"id": o["personId"], "name": o["name"]}
                     for o in g.get("officials", [])
@@ -103,6 +101,10 @@ def main() -> None:
         "SELECT COUNT(*) FROM game_meta WHERE n_officials >= 3"
     ).fetchone()[0]
     print(f"game_meta written; {n3}/{len(rows)} games with 3+ officials")
+    # shot_value.py inner-joins game_meta, so a game missing here silently
+    # drops out of the shot-value suite. Fail loudly instead.
+    if failed:
+        sys.exit(f"{failed} games have no game_meta")
 
 
 if __name__ == "__main__":

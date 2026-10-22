@@ -19,7 +19,8 @@ COLS = ["PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "GP", "MIN",
 
 def pull_season(season: str) -> None:
     path = os.path.join(OUT_DIR, f"{season}.parquet")
-    if os.path.exists(path):
+    # the current season keeps adding games; never trust a frozen file
+    if season != config.SEASONS[-1] and os.path.exists(path):
         return
     df = leaguedashplayerstats.LeagueDashPlayerStats(
         season=season, per_mode_detailed="Per100Possessions",

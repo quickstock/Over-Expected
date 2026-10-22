@@ -69,7 +69,9 @@ def season_name_index(season: str, game_ids) -> dict:
     enriched with bio-derived name forms per player. Cached to JSON
     (keys 'tid|name'; cache version bumps when the derivation changes)."""
     path = os.path.join(IDX_DIR, f"{season}.v3.json")
-    if os.path.exists(path):
+    # the current season keeps adding games and debutants; never trust a
+    # frozen index for it
+    if season != config.SEASONS[-1] and os.path.exists(path):
         with open(path) as fh:
             raw = json.load(fh)
         return {(int(k.split("|", 1)[0]), k.split("|", 1)[1]): set(v)
@@ -181,6 +183,9 @@ def main():
     games = pd.read_sql(
         "SELECT GAME_ID, season, home_team_id, away_team_id FROM games "
         "ORDER BY GAME_ID", con)
+    # every layer reads its seasons from possession_lineups, so this is the
+    # one place a season too young to fit is held back
+    games = games[games.season.isin(config.layer_seasons())]
     poss_all = pd.read_sql(
         "SELECT game_id, period, possession_number, start_time, end_time, "
         "offense_team_id FROM possessions", con)
