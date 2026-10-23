@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 
 from config import (
+    era_pbp_files,
     DB_PATH, CACHE_DIR, SEASONS, PRIOR_SEASON,
     CONTEXT_FEATURES, CARRIED_FEATURES, TARGET, ALL_FEATURES,
 )
@@ -298,7 +299,11 @@ def build_shots_and_outcomes(conn: sqlite3.Connection, game_ids: list[str] | Non
     logger.info("Loading shotchartdetail cache ...")
     shots_dir = os.path.join(CACHE_DIR, "shots")
     all_scd = []
+    # only this era's seasons: the cache holds the live window and the archive
+    suffixes = tuple(f"_{s.replace('-', '_')}.parquet" for s in SEASONS)
     for f in Path(shots_dir).glob("*.parquet"):
+        if not f.name.endswith(suffixes):
+            continue
         df = pd.read_parquet(f)
         if df is not None and len(df) > 0:
             all_scd.append(df)
@@ -561,8 +566,8 @@ def main():
     # Build games
     build_games(conn)
 
-    # Build shots + shot_outcomes (core linking)
-    game_ids = [args.game] if args.game else None
+    # Build shots + shot_outcomes (core linking), this era's games only
+    game_ids = [args.game] if args.game else [p.stem for p in era_pbp_files()]
     build_shots_and_outcomes(conn, game_ids)
 
     # Build player_season

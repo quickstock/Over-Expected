@@ -8,16 +8,24 @@ machine, a real browser included. boxscoresummaryv3 carries the same fields
 order included. Not v2: boxscoresummaryv2 returns no officials for late
 2025-26 games.
 
-Usage: python3 scripts/pull_game_meta.py
+Officials: boxscoresummaryv3 lists none before 2003-04 (probed 2026-10-22), so
+archive games before then carry n_officials = 0 and drop out of the referee
+views only.
+
+Usage: python3 scripts/pull_game_meta.py              build game_meta from the DB's games
+       python3 scripts/pull_game_meta.py --season S   prefetch one season's cache from
+                                                     its cached game list (archive pull)
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sqlite3
 import sys
 import time
 from pathlib import Path
 
+import pandas as pd
 from nba_api.stats.library.http import NBAStatsHTTP
 
 ROOT = Path(__file__).parent.parent
@@ -31,12 +39,12 @@ def fetch(gid: str) -> dict | None:
     path = CACHE / f"{gid}.json"
     if path.exists():
         return json.loads(path.read_text())
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             g = NBAStatsHTTP().send_api_request(
                 endpoint="boxscoresummaryv3",
                 parameters={"GameID": gid, "LeagueID": "00"},
-                timeout=60,
+                timeout=30,
             ).get_dict()["boxScoreSummary"]
             row = {
                 "game_id": gid,
@@ -51,11 +59,24 @@ def fetch(gid: str) -> dict | None:
             time.sleep(0.35)
             return row
         except Exception as e:  # noqa: BLE001
-            if attempt == 2:
+            if attempt == 4:
                 print(f"  {gid}: FAILED ({e})")
                 return None
-            time.sleep(2 * (attempt + 1))
+            # an empty body is stats.nba.com throttling: back off for longer;
+            # and a throttled keep-alive connection keeps hanging while a new
+            # one is answered at once, so drop the session either way
+            NBAStatsHTTP.set_session(None)
+            throttled = isinstance(e, json.JSONDecodeError)
+            time.sleep(15 * 2 ** attempt if throttled else 2 * (attempt + 1))
     return None
+
+
+def prefetch(season: str) -> None:
+    gids = pd.read_parquet(ROOT / CACHE_DIR / "seasons" / f"games_{season}.parquet")["GAME_ID"]
+    failed = sum(fetch(str(g)) is None for g in gids)
+    print(f"{season}: {len(gids)} games, {failed} failed")
+    if failed:
+        sys.exit(f"{failed} games have no game_meta")
 
 
 def main() -> None:
@@ -108,4 +129,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season")
+    args = ap.parse_args()
+    if args.season:
+        prefetch(args.season)
+    else:
+        main()

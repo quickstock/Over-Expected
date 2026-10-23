@@ -40,11 +40,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config import DB_PATH
+from config import DB_PATH, SEASONS, crossfit_train_seasons
 from xfg_model import engineer, make_clf, FEATURES
 
 QUALIFY_POSS = 300      # same qualification as the xFTA board
-LEADERBOARD_SEASON = "2024-25"   # latest complete season for the top-25
+LEADERBOARD_SEASON = SEASONS[-2]  # latest complete season, for the printed top-25
 
 
 def load_all() -> pd.DataFrame:
@@ -67,12 +67,14 @@ def load_all() -> pd.DataFrame:
 
 
 def cross_fit_xfg(df: pd.DataFrame) -> pd.Series:
-    """Leakage-free xFG%: for each season, train on every other season."""
+    """Leakage-free xFG%: each season scored by a model trained on its
+    nearest other seasons (config.crossfit_train_seasons: every other season
+    in the live window)."""
     import time
     xfg = pd.Series(np.nan, index=df.index)
     seasons = sorted(df["season"].unique())
     for s in seasons:
-        tr = df[df["season"] != s]
+        tr = df[df["season"].isin(crossfit_train_seasons(s, seasons))]
         te = df[df["season"] == s]
         t0 = time.monotonic()
         clf = make_clf()

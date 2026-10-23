@@ -4,13 +4,27 @@ Feature *selection* happens at model time. The tables are a superset.
 """
 
 # Seasons (regular season only), derived from the calendar so the
-# pipeline rolls forward on its own each October. 2020-21 is the fixed
-# earliest season (2019-20 was interrupted/bubble-distorted); the list
-# always ends at the season implied by today's date, so historic
-# seasons are never dropped.
+# pipeline rolls forward on its own each October.
+#
+# Two eras, two databases. The live window (2020-21 to the current season)
+# is what the Monday job rebuilds. The archive (1997-98 to 2019-20) is built
+# once with OE_ERA=archive, into its own database, with the same scripts: its
+# models train on its own era, and the Monday job never touches it.
+#
+# stats.nba.com reaches back to 1996-97, but that season's shot locations are
+# coded differently: 35.7% of its shots sit at the exact rim point against ~25%
+# in the seasons after, and its zone model missed by up to 6.3 points (paint)
+# against a +-2 standard everywhere else. Kevin's call (2026-10-23): start at
+# 1997-98 rather than ship a season that leans against rim players.
 import datetime as _dt
+import os
+
+ERA = os.environ.get("OE_ERA", "live")
+if ERA not in ("live", "archive"):
+    raise ValueError(f"OE_ERA must be live or archive, not {ERA!r}")
 
 FIRST_SEASON_START = 2020
+ARCHIVE_FIRST_START = 1997
 
 
 def _season_str(start_year: int) -> str:
@@ -24,15 +38,28 @@ def _current_season_start(today: "_dt.date | None" = None) -> int:
     return d.year if d.month >= 10 else d.year - 1
 
 
-SEASONS = [
-    _season_str(y)
-    for y in range(FIRST_SEASON_START, _current_season_start() + 1)
-]
+# The calendar's season, whichever era is being built.
+CURRENT_SEASON = _season_str(_current_season_start())
 
-# Prior-season mapping for player-rate leakage prevention
+# OE_ARCHIVE_THROUGH=1997-98 cuts the archive short, for piloting the build on
+# the first seasons pulled while the rest are still downloading.
+_ARCHIVE_END = (int(os.environ["OE_ARCHIVE_THROUGH"][:4]) + 1
+                if "OE_ARCHIVE_THROUGH" in os.environ else FIRST_SEASON_START)
+
+SEASONS = (
+    [_season_str(y) for y in range(ARCHIVE_FIRST_START, _ARCHIVE_END)]
+    if ERA == "archive"
+    else [_season_str(y) for y in range(FIRST_SEASON_START, _current_season_start() + 1)]
+)
+
+# Player tracking (drives, paint and post touches) starts here; earlier
+# seasons have no style-adjusted cross-check.
+TRACKING_FIRST_SEASON = "2013-14"
+
+# Prior-season mapping for player-rate leakage prevention, both eras
 PRIOR_SEASON = {
     _season_str(y): _season_str(y - 1)
-    for y in range(FIRST_SEASON_START, _current_season_start() + 1)
+    for y in range(ARCHIVE_FIRST_START, _current_season_start() + 1)
 }
 
 # Context-only model features (superset — headline model uses a subset)
@@ -93,12 +120,47 @@ NBA_API_TIMEOUT = 60          # request timeout seconds
 # Caching
 CACHE_DIR = "cache"
 
-import os
 # Database — relative to the xFTA project root (the directory this file
 # lives in), so it works no matter which directory the process is
 # launched from.
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(_REPO_ROOT, "xfta.db")
+DB_PATH = os.path.join(_REPO_ROOT, "xfta_archive.db" if ERA == "archive" else "xfta.db")
+# Per-era model metrics and site export. The archive exports beside the live
+# one, never over it: sync_data.py ships it as data-NBA-archive.json plus a
+# players-NBA-{season}.json per archive season.
+ARTIFACT_DIR = os.path.join(_REPO_ROOT, "model_artifacts", *(["archive"] if ERA == "archive" else []))
+EXPORT_DIR = os.path.join(_REPO_ROOT, "site", "public-archive" if ERA == "archive" else "public")
+
+
+CROSSFIT_NEIGHBOURS = 6
+
+
+def crossfit_train_seasons(held: str, seasons: list) -> list:
+    """The seasons a held-out season's model trains on: its nearest
+    CROSSFIT_NEIGHBOURS others (earlier first on a tie). In the seven-season
+    live window that is every other season, exactly as before. In the
+    24-season archive it bounds memory (fitting each fold on the other 23
+    seasons of possessions was killed for memory on 2026-10-23, 18 GB) and keeps
+    each season's model in its own era: 1997 learns from 1994-2000, not 2019."""
+    order = sorted(seasons)
+    i = order.index(held)
+    others = [s for s in order if s != held]
+    return sorted(others, key=lambda s: (abs(order.index(s) - i), order.index(s)))[:CROSSFIT_NEIGHBOURS]
+
+
+def era_pbp_files() -> list:
+    """Play-by-play cache files for this era's games, in game-id order. The
+    cache holds both eras, so globbing it builds an era's tables from every
+    game ever pulled: the first archive pilot processed 8,422 games instead of
+    1996-97's 1,189. The era's games are the DB's games table, which
+    build_tables writes from this era's game lists."""
+    import sqlite3
+    from pathlib import Path
+    con = sqlite3.connect(DB_PATH)
+    ids = [r[0] for r in con.execute("SELECT GAME_ID FROM games ORDER BY GAME_ID")]
+    con.close()
+    pbp = Path(_REPO_ROOT) / CACHE_DIR / "pbp"
+    return [p for p in (pbp / f"{g}.parquet" for g in ids) if p.exists()]
 
 
 def layer_seasons() -> list:

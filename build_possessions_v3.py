@@ -34,7 +34,7 @@ from typing import Optional
 
 import pandas as pd
 
-from config import DB_PATH
+from config import DB_PATH, era_pbp_files
 
 # ─── pbpstats imports ────────────────────────────────────────────────────
 sys.path.insert(0, "/Users/kevin/Library/Python/3.9/lib/python/site-packages")
@@ -502,7 +502,7 @@ def process_game(df: pd.DataFrame, gid: str) -> tuple[list[dict], list[dict]]:
 
 
 def main():
-    files = sorted(PBP_DIR.glob("*.parquet"))
+    files = era_pbp_files()
     print(f"Step 1+2+3: build possession rows via pbpstats")
     print(f"  games: {len(files)}")
     print(f"  source: {PBP_DIR}/*.parquet (V3 NBA Stats live PBP)")

@@ -20,10 +20,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config import DB_PATH
+from config import ARTIFACT_DIR, DB_PATH, EXPORT_DIR
+import referees
 
 QUALIFY_POSS = 300  # threshold for percentile + player pages
-OUT = Path(__file__).parent / "site" / "public" / "data.json"
+OUT = Path(EXPORT_DIR) / "data.json"
 
 from config import TEAM_ABBREV  # noqa: E402
 
@@ -306,20 +307,14 @@ calibration = [
 ]
 
 # ------------------------------------------------------- referees + teams
-# Per-official rates (descriptive, league-level: each official's games see
-# X shooting-foul FTA per 100 possessions). The model already adjusts for
-# crew tendency; these tables just show it. Two products:
-#   referees   -> per-season index strip (name, games, rate vs league)
-#   refProfiles-> per-official profile: headline + how the whistle moves by
-#                 quarter and by game script (blowout vs close).
-QUALIFY_REF_GAMES = 20
-QUARTER_ORDER = ["Q1", "Q2", "Q3", "Q4", "OT"]
-SCRIPT_ORDER = ["close", "mid", "blowout"]
-
+# Officials over the expected whistle of the games they worked (shot diet plus
+# the players on the floor), shrunk to what the data supports: referees.py.
+# Officials qualify at 20 games in a season.
+#
 # Final game script from the last *nonzero* running margin: score_margin is
 # only stamped on scoring events (0 elsewhere), so 0 is missing, not tied.
 # close <= 5, mid 6-12, blowout 13+. Every game classifies.
-ref_base = pd.read_sql(
+ref_poss = pd.read_sql(
     """WITH ls AS (
            SELECT game_id, ABS(score_margin) AS m,
                   ROW_NUMBER() OVER (
@@ -336,118 +331,31 @@ ref_base = pd.read_sql(
            FROM ls WHERE rn = 1
        )
        SELECT p.game_id, p.period, p.sfta, g.season, fm.bucket,
-              m.ref1_id, m.ref1_name, m.ref2_id, m.ref2_name,
-              m.ref3_id, m.ref3_name
+              p.finisher_player_id AS pid
        FROM possessions p
        JOIN games g ON g.GAME_ID = p.game_id
        JOIN game_meta m ON m.game_id = p.game_id
        JOIN fm ON fm.game_id = p.game_id""",
     conn,
 )
-ref_base["q"] = np.where(
-    ref_base["period"] <= 4,
-    "Q" + ref_base["period"].astype(int).astype(str),
+ref_poss["q"] = np.where(
+    ref_poss["period"] <= 4,
+    "Q" + ref_poss["period"].astype(int).astype(str),
     "OT",
 )
-
-# League baselines over all possessions (per 100), matching the index strip.
-lg_season = ref_base.groupby("season")["sfta"].mean() * 100
-lg_quarter = ref_base.groupby(["season", "q"])["sfta"].mean() * 100
-lg_script = ref_base.groupby(["season", "bucket"])["sfta"].mean() * 100
-
-# Melt the three official slots to one row per (possession, official).
-ref_parts = []
-for n in (1, 2, 3):
-    sub = ref_base[["game_id", "season", "q", "bucket", "sfta"]].copy()
-    sub["ref_id"] = ref_base[f"ref{n}_id"]
-    sub["ref_name"] = ref_base[f"ref{n}_name"]
-    ref_parts.append(sub[sub["ref_id"].notna()])
-refl = pd.concat(ref_parts, ignore_index=True)
-refl["ref_id"] = refl["ref_id"].astype(int)
-ref_name = refl.groupby("ref_id")["ref_name"].agg(lambda s: s.mode().iat[0])
-
-head = (
-    refl.groupby(["ref_id", "season"])
-    .agg(games=("game_id", "nunique"), poss=("sfta", "size"), fta=("sfta", "sum"))
-    .reset_index()
-)
-head["per100"] = head["fta"] / head["poss"] * 100
-qg = (
-    refl.groupby(["ref_id", "season", "q"])
-    .agg(poss=("sfta", "size"), fta=("sfta", "sum")).reset_index()
-)
-qg["per100"] = qg["fta"] / qg["poss"] * 100
-sg = (
-    refl.groupby(["ref_id", "season", "bucket"])
-    .agg(games=("game_id", "nunique"), poss=("sfta", "size"), fta=("sfta", "sum"))
-    .reset_index()
-)
-sg["per100"] = sg["fta"] / sg["poss"] * 100
-
-# Per-season index strip: officials with >= 20 games, sorted by rate vs league.
-referees_out = {}
-for season, grp in head.groupby("season"):
-    rows = []
-    for r in grp.itertuples():
-        if r.games < QUALIFY_REF_GAMES:
-            continue
-        lg = float(lg_season[season])
-        rows.append({
-            "id": int(r.ref_id),
-            "name": ref_name[int(r.ref_id)],
-            "games": int(r.games),
-            "per100": round(r.per100, 2),
-            "diff": round(r.per100 - lg, 2),
-        })
-    rows.sort(key=lambda x: -x["diff"])
-    referees_out[season] = rows
-
-# Per-official profile, keyed by id. Each qualified season carries the
-# headline plus the by-quarter and by-script splits, each against that
-# split's own league baseline (so a Q4 rate is judged vs the league's Q4).
-qg_g = qg.groupby(["ref_id", "season"])
-sg_g = sg.groupby(["ref_id", "season"])
-ref_profiles: dict[str, dict] = {}
-for r in head.itertuples():
-    if r.games < QUALIFY_REF_GAMES:
-        continue
-    rid, season = int(r.ref_id), r.season
-    prof = ref_profiles.setdefault(
-        str(rid), {"name": ref_name[rid], "seasons": [], "detail": {}}
-    )
-    prof["seasons"].append(season)
-    qmap = {qr.q: qr for qr in qg_g.get_group((rid, season)).itertuples()}
-    quarters = [
-        {
-            "q": q,
-            "poss": int(qmap[q].poss),
-            "per100": round(qmap[q].per100, 2),
-            "lg": round(float(lg_quarter[(season, q)]), 2),
-        }
-        for q in QUARTER_ORDER if q in qmap
-    ]
-    smap = {sr.bucket: sr for sr in sg_g.get_group((rid, season)).itertuples()}
-    script = [
-        {
-            "b": b,
-            "games": int(smap[b].games),
-            "poss": int(smap[b].poss),
-            "per100": round(smap[b].per100, 2),
-            "lg": round(float(lg_script[(season, b)]), 2),
-        }
-        for b in SCRIPT_ORDER if b in smap
-    ]
-    prof["detail"][season] = {
-        "games": int(r.games),
-        "poss": int(r.poss),
-        "fta": int(r.fta),
-        "per100": round(r.per100, 2),
-        "lg": round(float(lg_season[season]), 2),
-        "quarters": quarters,
-        "script": script,
-    }
-for prof in ref_profiles.values():
-    prof["seasons"] = sorted(prof["seasons"])
+ref_diet = pd.read_sql(
+    "SELECT game_id, player_id AS pid, xft FROM diet_game", conn)
+_meta = pd.read_sql(
+    "SELECT game_id, ref1_id, ref1_name, ref2_id, ref2_name, ref3_id, ref3_name "
+    "FROM game_meta", conn)
+ref_games = pd.concat(
+    [_meta[["game_id", f"ref{n}_id", f"ref{n}_name"]]
+     .set_axis(["game_id", "ref_id", "ref_name"], axis=1) for n in (1, 2, 3)],
+    ignore_index=True,
+).dropna(subset=["ref_id"])
+ref_games["ref_id"] = ref_games["ref_id"].astype(int)
+referees_out, ref_profiles, referees_meta = referees.build(
+    ref_poss, ref_diet, ref_games, qualify_games=20)
 
 # Team-season FTAOE drawn (offense) and conceded (defense), anchored
 # expectations so each season sums to ~0 on both sides.
@@ -572,9 +480,9 @@ if has_sv:
 
 # ------------------------------------------------------------------- meta
 metrics = json.loads(
-    (Path(__file__).parent / "model_artifacts" / "headline_v4_context_metrics.json")
-    .read_text()
+    (Path(ARTIFACT_DIR) / "headline_v4_context_metrics.json").read_text()
 )
+# The retired context baseline's paper figures, live era only, for the history.
 _ART = Path(__file__).parent / "model_artifacts"
 n_poss = pred.shape[0]
 
@@ -630,7 +538,9 @@ _confounds = {
     "rawRateCorr": round(float(_cq.ftaoe_per_100.corr(_cq.raw100)), 3),
     "heightCorr": round(float(_cq.ftaoe_per_100.corr(_cq.height_inches)), 3),
     "rawHeightCorr": round(float(_cq.raw100.corr(_cq.height_inches)), 3),
-    "trackingCorr": round(float(_cq.ftaoe_per_100.corr(_cq.sadj_per100)), 3),
+    # null for an era with no tracking seasons (the archive before 2013-14)
+    "trackingCorr": (None if pd.isna(_cq.ftaoe_per_100.corr(_cq.sadj_per100))
+                     else round(float(_cq.ftaoe_per_100.corr(_cq.sadj_per100)), 3)),
     "contextRawRateCorr": _vrb["agreement"]["pearsonR"],
     "contextHeightCorr": _avl["heightGradient"]["headline"],
 }
@@ -668,6 +578,7 @@ meta = {
     },
     "confounds": _confounds,
     "dietRates": diet_rates,
+    "referees": referees_meta,
 }
 
 out = {

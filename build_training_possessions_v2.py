@@ -38,7 +38,7 @@ from pbpstats.resources.enhanced_pbp import (
     Turnover as TV,
     Rebound as RB,
 )
-from config import DB_PATH
+from config import DB_PATH, ERA, era_pbp_files
 
 CATEGORICAL = [
     "shot_zone_basic",
@@ -127,8 +127,7 @@ def derive_features(p_events):
 
 
 def main():
-    pbp_dir = Path("cache/pbp")
-    files = sorted(pbp_dir.glob("*.parquet"))
+    files = era_pbp_files()
     print(f"Walking {len(files)} games for possession features...")
 
     rows = []
@@ -164,7 +163,7 @@ def main():
     # Persist raw feature rows so re-runs don't re-walk 3,690 games
     cache_dir = Path("cache/training")
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_fp = cache_dir / "possession_features_raw.parquet"
+    cache_fp = cache_dir / f"possession_features_raw{'_archive' if ERA == 'archive' else ''}.parquet"
     df.to_parquet(cache_fp, index=False)
     print(f"Cached raw features: {cache_fp}")
 

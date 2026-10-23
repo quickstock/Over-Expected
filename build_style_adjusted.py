@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from config import DB_PATH, SEASONS
+from config import DB_PATH, SEASONS, crossfit_train_seasons
 
 QUALIFY_POSS = 300
 
@@ -50,6 +50,16 @@ def main() -> None:
         f"{int(covered.sum())} ({covered.mean() * 100:.1f}%)"
     )
     df = df[covered].copy()
+    if df.empty:
+        # An era with no tracking seasons (an archive pilot before 2013-14):
+        # the cross-check is absent, so the table is empty and there is
+        # nothing to fit or check.
+        conn.execute("DROP TABLE IF EXISTS style_expected")
+        pd.DataFrame(columns=["player_id", "season", "style_xfta"]).to_sql(
+            "style_expected", conn, index=False)
+        conn.commit()
+        conn.close()
+        return
 
     # Exposure intensities per 100 finisher-possessions.
     for c in ["drives", "paint_touches", "post_touches"]:
@@ -58,10 +68,10 @@ def main() -> None:
     feats = ["drives_per100", "paint_touches_per100", "post_touches_per100"]
     preds = []
     for held in SEASONS:
-        tr = df[df["season"] != held]
         teq = df[df["season"] == held].copy()
         if teq.empty:
             continue
+        tr = df[df["season"].isin(crossfit_train_seasons(held, sorted(df["season"].unique())))]
         X_tr = sm.add_constant(tr[feats].astype(float), has_constant="add")
         X_te = sm.add_constant(teq[feats].astype(float), has_constant="add")
         model = sm.GLM(

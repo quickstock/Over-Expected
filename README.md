@@ -192,6 +192,22 @@ python export_site_data.py        # write site/public/*.json
 python scripts/validate_export.py # gate
 ```
 
+The archive (1997-98 to 2019-20) is a second era built by the same scripts
+into its own database (`xfta_archive.db`) and export folder
+(`site/public-archive/`), selected with `OE_ERA=archive`. Its models train on
+its own seasons; the Monday job never touches it.
+
+```bash
+scripts/pull_archive.sh           # one-off pull, oldest first, resumable
+scripts/build_archive.sh          # rebuild + export the archive, then the export gate
+```
+
+Play-by-play from before ~2000 stamps many non-scoring rows 0-0 mid-game;
+`pull.normalize_scores` blanks those at pull time (`pull.py --season S
+--normalize-cached` fixes a season already cached). Officials start in 2003-04
+and player tracking in 2013-14, so referee views and the style-adjusted
+cross-check start there.
+
 Site (from `site/`):
 
 ```bash

@@ -36,9 +36,9 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from config import DB_PATH, SEASONS
+from config import ARTIFACT_DIR, DB_PATH, SEASONS, crossfit_train_seasons
 
-MODEL_DIR = "model_artifacts"
+MODEL_DIR = ARTIFACT_DIR
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 BASE_FEATURES = [
@@ -177,7 +177,7 @@ def main() -> None:
     all_preds = []
     fold_metrics = []
     for held in SEASONS:
-        train = df[df["season"] != held]
+        train = df[df["season"].isin(crossfit_train_seasons(held, SEASONS))]
         test = df[df["season"] == held]
         print(f"\nFold: hold out {held}  train={len(train):,}  test={len(test):,}")
 

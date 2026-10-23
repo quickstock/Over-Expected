@@ -12,9 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-from config import DB_PATH  # noqa: E402
+from config import DB_PATH, ERA, EXPORT_DIR  # noqa: E402
 
-JSON_PATH = ROOT / "site" / "public" / "data.json"
+JSON_PATH = Path(EXPORT_DIR) / "data.json"
 
 raw_text = JSON_PATH.read_text()
 data = json.loads(raw_text)
@@ -226,10 +226,20 @@ report(
 # ---------------------------------------------------------------- check 5d
 ok5d = True
 lines = []
+# Teams per season from the season's own games (29 until 2004-05), and
+# officials only where the feed lists them (none before 2003-04).
+_league = conn.execute(
+    """SELECT g.season, COUNT(DISTINCT m.home_team_id), AVG(m.n_officials >= 3)
+       FROM games g JOIN game_meta m ON m.game_id = g.GAME_ID GROUP BY g.season"""
+).fetchall()
+n_teams = {s2: n for s2, n, _ in _league}
+# a season counts once most of its games name officials (a few late-1990s
+# games do, which is not a season of referee data)
+with_officials = {s2 for s2, _, share in _league if share > 0.5}
 for season, rows in data.get("teams", {}).items():
-    if season != data["meta"]["seasons"][-1] and len(rows) != 30:
+    if season != data["meta"]["seasons"][-1] and len(rows) != n_teams.get(season):
         ok5d = False
-        lines.append(f"{season}: {len(rows)} teams")
+        lines.append(f"{season}: {len(rows)} teams of {n_teams.get(season)}")
         continue
     wd = sum(r["drawn"] * r["poss"] for r in rows) / sum(r["poss"] for r in rows)
     wc = sum(r["conceded"] * r["poss"] for r in rows) / sum(r["poss"] for r in rows)
@@ -237,20 +247,24 @@ for season, rows in data.get("teams", {}).items():
         ok5d = False
     lines.append(f"{season}: drawn {wd:+.3f} conceded {wc:+.3f}")
 nrefs = {s2: len(v) for s2, v in data.get("referees", {}).items()}
-complete = [s2 for s2 in nrefs if s2 != data["meta"]["seasons"][-1]]
+complete = [s2 for s2 in nrefs if s2 != data["meta"]["seasons"][-1] and s2 in with_officials]
 if any(nrefs[s2] < 30 for s2 in complete):
     ok5d = False
 report(
-    "5d. Teams: 30/season, poss-weighted league mean ~0 both sides; refs >= 30/season",
+    "5d. Teams: every team in the season's games, poss-weighted league mean ~0 both sides; refs >= 30 where the feed lists officials",
     ok5d,
     " | ".join(lines) + f" | refs per season: {nrefs}",
 )
 
 # ---------------------------------------------------------------- check 6
 size_mb = JSON_PATH.stat().st_size / 1e6
+# Every page loads the live core on boot, so it stays small. The archive core
+# (24 seasons) loads only when a page asks for an archive season, player or
+# official, so it gets a looser bound.
+core_limit = 6.0 if ERA == "archive" else 2.0
 report(
-    "6. Core file < 2 MB raw (player detail is chunked per season)",
-    size_mb < 2.0,
+    f"6. Core file < {core_limit:.0f} MB raw (player detail is chunked per season)",
+    size_mb < core_limit,
     f"core {size_mb:.2f} MB; chunks: "
     + ", ".join(f"{k} {v:.2f} MB" for k, v in chunk_sizes.items()),
 )
