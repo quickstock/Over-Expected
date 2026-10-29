@@ -35,4 +35,5 @@ step "shot value"          $PY shot_value.py
 step "per-shot xFG"        $PY build_shots_xfg.py
 step "export"              $PY export_site_data.py
 step "EXPORT GATE"         $PY scripts/validate_export.py
+step "shot sample"         $PY export_shots.py
 echo "=== archive built $(date '+%H:%M:%S')"
