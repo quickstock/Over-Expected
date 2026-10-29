@@ -25,7 +25,7 @@ the final score (the larger of the stamped scores, which never decrease).
 A game that does not is left out and counted.
 
 Gates (exit 1, nothing written):
-  * under 1% of a season's games left out;
+  * no more than max(1% of a season's games, 3) left out;
   * expected FG points within 0.5% of actual FG points per season (2% for the
     in-progress season: the anchor is on makes, not points, so a season a few
     games old drifts in points while every completed season sits inside 0.5%).
@@ -62,7 +62,9 @@ LEAGUE = "NBA"
 CM_PER_TENTH_FOOT = 3.048      # shot_x/shot_y are tenths of a foot
 FG_TOL = 0.005                 # |expected - actual| FG points / actual, completed seasons
 FG_TOL_IN_PROGRESS = 0.02
-MAX_EXCLUDED = 0.01
+LEFT_OUT_PERCENT = 1           # a season may leave out this share of its games ...
+LEFT_OUT_MIN = 3               # ... but never fewer than this many (ruling 7)
+XFG_TIE = 0.05                 # a side's player xFgPts may differ from its expected FG points by this much
 ECE_MAX = 0.05
 DECILE_MAX_GAP = 0.08
 DECILE_MIN_N = 100
@@ -152,6 +154,78 @@ def ft_block(fts: pd.DataFrame, idx: dict) -> dict:
         "m": "".join("1" if m else "0" for m in fts["made"]),
         "e": np.rint(fts["pct"].to_numpy(dtype=float) * 1000).astype(int).tolist(),
     }
+
+
+def anchor_tolerance(season: str) -> float:
+    """How far a season's expected FG points may sit from its actual FG points: 0.5%,
+    or 2% for the live era's in-progress season (the anchor is on makes, not points)."""
+    return FG_TOL_IN_PROGRESS if (config.ERA == "live" and season == config.CURRENT_SEASON) else FG_TOL
+
+
+def left_out_limit(n_games: int) -> int:
+    """The most games a season may leave out: 1% of its games, never fewer than three."""
+    return max(n_games * LEFT_OUT_PERCENT // 100, LEFT_OUT_MIN)
+
+
+def shooter_sides(sh: pd.DataFrame, fts: pd.DataFrame) -> "dict | None":
+    """Player id -> side for everyone who shot or took a free throw, or None when a
+    player's free throws are on a different team than his shots."""
+    side_of = dict(zip(sh["player_id"], sh["side"]))
+    for pid, side in zip(fts["pid"], fts["side"]):
+        if side_of.get(pid, side) != side:
+            return None
+        side_of[pid] = side
+    return side_of
+
+
+def officials(meta: pd.DataFrame, gid: str) -> list:
+    """[[id, name]] for each official game_meta lists (ids as strings); none before
+    2003-04, and none for a game with no game_meta row."""
+    if gid not in meta.index:
+        return []
+    m = meta.loc[gid]
+    return [[str(int(m[f"ref{k}_id"])), m[f"ref{k}_name"]] for k in (1, 2, 3) if pd.notna(m[f"ref{k}_id"])]
+
+
+def player_lines(gid: str, sh: pd.DataFrame, un: "pd.DataFrame | None", fts: pd.DataFrame,
+                 pgsv: "pd.DataFrame | None", side_of: dict, names: dict, pbp_names: dict,
+                 expected_fg: dict) -> tuple[list, int]:
+    """A game's [pid, name, side, fga, fgPts, xFgPts, fta, ftm] rows, and how many names
+    came from the pbp. FG numbers start from player_game_shot_value (pgsv; the form chart's),
+    plus the unlocated shots (un) at their xpts; free throws from the pbp. Everyone in the
+    game's shots or free throws gets a row. Raises when a side's xFgPts do not add up to
+    expected_fg[side], the expected FG points its shots are worth."""
+    line = {}
+    if pgsv is not None:
+        for r in pgsv.itertuples():
+            line[int(r.player_id)] = [int(r.fga), int(round(r.act_fg_pts)), float(r.exp_fg_pts), 0, 0]
+    for pid in sh["player_id"]:
+        line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
+    if un is not None:
+        for pid, made, value, xpts in zip(un["player_id"], un["made"], un["value"], un["xpts"]):
+            row = line[int(pid)]
+            row[0] += 1
+            row[1] += int(made) * int(value)
+            row[2] += float(xpts)
+    for pid, made in zip(fts["pid"], fts["made"]):
+        row = line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
+        row[3] += 1
+        row[4] += int(made)
+    for side in (0, 1):
+        got = sum(row[2] for pid, row in line.items() if side_of[pid] == side)
+        if abs(got - expected_fg[side]) > XFG_TIE:
+            raise ValueError(f"{gid}: side {side} players' expected FG points {got:.3f} "
+                             f"differ from the side's {expected_fg[side]:.3f}")
+    players, fallbacks = [], 0
+    for pid, (fga, pts, xpts, fta, ftm) in line.items():
+        if pid in names:
+            name = names[pid]
+        else:
+            name = pbp_names[pid]
+            fallbacks += 1
+        players.append([str(pid), name, int(side_of[pid]), fga, pts, round(xpts, 2), fta, ftm])
+    players.sort(key=lambda p: (p[2], -(p[4] + p[7]), p[0]))
+    return players, fallbacks
 
 
 def read_game(path: Path, home: int, away: int) -> dict:
@@ -280,8 +354,8 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
             sh = sh.sort_values(["period", "sec", "event_id"], ascending=[True, False, True], kind="stable")
 
         # A player has one side: the team of his shots, which his free throws must agree with.
-        side_of = dict(zip(sh["player_id"], sh["side"]))
-        if any(side_of.setdefault(p, s) != s for p, s in zip(fts["pid"], fts["side"])):
+        side_of = shooter_sides(sh, fts)
+        if side_of is None:
             out["side"] += 1
             continue
 
@@ -298,42 +372,15 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
         wins.append(share)
         home_won.append(1.0 if hs > as_ else 0.0 if hs < as_ else 0.5)
 
-        # Player lines: FG from the table the form chart reads plus unlocated shots, FT from the pbp.
-        line = {int(r.player_id): [int(r.fga), int(round(r.act_fg_pts)), float(r.exp_fg_pts), 0, 0]
-                for r in lines_by_game[gid].itertuples()} if gid in lines_by_game else {}
-        for pid in sh["player_id"]:
-            line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
-        if un is not None:
-            for pid, made, value, xfg in zip(un["player_id"], un["made"], un["value"], un["xfg"]):
-                row = line[int(pid)]
-                row[0] += 1
-                row[1] += int(made) * int(value)
-                row[2] += float(xfg)
-        for pid, made in zip(fts["pid"], fts["made"]):
-            row = line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
-            row[3] += 1
-            row[4] += int(made)
-        players = []
-        for pid, (fga, pts, xpts, fta, ftm) in line.items():
-            if pid in names:
-                name = names[pid]
-            else:
-                name = pbp["names"][pid]
-                name_fallbacks += 1
-            players.append([str(pid), name, int(side_of[pid]), fga, pts, round(xpts, 2), fta, ftm])
-        players.sort(key=lambda p: (p[2], -(p[4] + p[7]), p[0]))
+        players, fallbacks = player_lines(
+            gid, sh, un, fts, lines_by_game.get(gid), side_of, names, pbp["names"],
+            {0: tot[0]["xfg"], 1: tot[1]["xfg"]})
+        name_fallbacks += fallbacks
         idx = {int(p[0]): i for i, p in enumerate(players)}
-
-        refs = []
-        if gid in meta.index:
-            m = meta.loc[gid]
-            for k in (1, 2, 3):
-                if pd.notna(m[f"ref{k}_id"]):
-                    refs.append([str(int(m[f"ref{k}_id"])), m[f"ref{k}_name"]])
 
         wk = week_key(g.date)
         chunks.setdefault(wk, {})[gid] = {
-            "p": players, "s": shot_block(sh, idx), "f": ft_block(fts, idx), "r": refs,
+            "p": players, "s": shot_block(sh, idx), "f": ft_block(fts, idx), "r": officials(meta, gid),
         }
         labels = pbp["labels"]
         rows.append({
@@ -368,15 +415,16 @@ def main() -> int:
         r = export_season(conn, s, pbp_files)
         results.append(r)
         frac = r["excluded"] / r["total"]
-        tol = FG_TOL_IN_PROGRESS if (config.ERA == "live" and s == config.CURRENT_SEASON) else FG_TOL
+        tol = anchor_tolerance(s)
         why = ", ".join(f"{k} {v}" for k, v in r["why"].items() if v)
         print(f"{s}: {len(r['rows'])} games, {r['excluded']} excluded ({frac:.2%})"
               f"{' [' + why + ']' if why else ''}, FG anchor {r['anchor']:+.2%}"
               f"{', unlocated shots in ' + str(r['unlocated']) if r['unlocated'] else ''}"
               f"{', names from pbp ' + str(r['name_fallbacks']) if r['name_fallbacks'] else ''}",
               flush=True)
-        if frac > MAX_EXCLUDED:
-            failures.append(f"{s}: {frac:.2%} of games left out (limit {MAX_EXCLUDED:.0%})")
+        if r["excluded"] > left_out_limit(r["total"]):
+            failures.append(f"{s}: {r['excluded']} of {r['total']} games left out "
+                            f"(limit {left_out_limit(r['total'])})")
         if abs(r["anchor"]) > tol:
             failures.append(f"{s}: FG anchor {r['anchor']:+.2%} outside +-{tol:.1%}")
 
