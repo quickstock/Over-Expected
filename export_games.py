@@ -8,11 +8,16 @@ in games.py, shared with Euro_OE; this file only assembles each game's frames
 from the NBA database and the cached play-by-play and applies the gates.
 
 Sources. Shots: shots joined to shots_xfg (the leak-free, season-anchored xFG
-the shot-making lens uses). Free throws: the cached play-by-play, because no
-table keeps per-game FT makes, each valued at its shooter's season FT% shrunk
-toward the league's. Player FGA / FG points / expected FG points come from
-player_game_shot_value, so a line here is exactly the player's game in the
-form chart.
+the shot-making lens uses). A few hundred shots, clustered in 2015-16 and
+2016-17, have no location in the shot-chart feed and so no xFG: they still
+count, with no coordinates and the xFG the season's league makes shots of that
+value at, because leaving them out left up to 4.6% of a season's games unable
+to rebuild their final. Free throws: the cached play-by-play, because no table
+keeps per-game FT makes, each valued at its shooter's season FT% shrunk toward
+the league's. Player FGA / FG points / expected FG points start from
+player_game_shot_value (the form chart's numbers) plus any unlocated shots.
+Team labels are the play-by-play's own tricode for that game (SEA, VAN, NJN
+before they moved), falling back to config.TEAM_ABBREV.
 
 A game is published only when its events rebuild the official final: each
 side's made field goals at their value plus its made free throws must equal
@@ -28,6 +33,13 @@ Calibration of the win share is not a failure: when the pooled ECE is not
 under 0.05, or a decile with 100+ games is more than 8 points from its mean,
 the win share is withheld (meta.winShare false, w null) and the pages show the
 expected score alone.
+
+A chunk's per-game detail is columnar (a shot's side is its player's side):
+  p  [[pid, name, side, fga, fgPts, xFgPts, fta, ftm]]  every player in the game
+  s  {p: index into p, q: period, c: seconds left, x, y: cm or null,
+      m: "0110", v: "2323", e: xFG in thousandths}
+  f  {p, q, c, m: "0110", e: shrunk FT% in thousandths}
+  r  [[refId, name]]
 
 Era-aware: OE_ERA=archive reads xfta_archive.db and writes the archive's files
 into site/public-archive, for the seasons its own data.json lists.
@@ -54,18 +66,14 @@ MAX_EXCLUDED = 0.01
 ECE_MAX = 0.05
 DECILE_MAX_GAP = 0.08
 DECILE_MIN_N = 100
-PBP_COLS = ["period", "clock", "teamId", "personId", "playerName",
-            "description", "actionType", "scoreHome", "scoreAway"]
+PBP_COLS = ["actionNumber", "period", "clock", "teamId", "teamTricode", "personId", "playerName",
+            "description", "actionType", "isFieldGoal", "shotValue", "scoreHome", "scoreAway"]
+SHOT_COLS = ["player_id", "event_id", "period", "sec", "x", "y", "made", "value", "xfg", "xpts", "side"]
 CLOCK = re.compile(r"PT(\d+)M(\d+(?:\.\d+)?)S")
 
 
 def ft_made(description: str) -> bool:
-    """A free throw is made unless its play-by-play line starts with MISS, with
-    one more miss form: a made throw's line always carries the shooter's running
-    total ('(12 PTS)'), and 98 of 1.6 million lines (2008-09 to 2016-17, a few
-    earlier) carry neither that nor MISS, a bare 'Free Throw 1 of 2'. Counting
-    those as makes put 18-26 games a season one point over their official final
-    and past the left-out gate; treated as misses, they reconstruct."""
+    """Made unless the line starts with MISS or lacks the '(N PTS)' tag: 98 archive lines are a bare 'Free Throw 1 of 2' and are misses (the reconstruction gate proves it)."""
     return not description.startswith("MISS") and "PTS)" in description
 
 
@@ -91,14 +99,71 @@ def shot_value(shot_type: str) -> int:
     return 3 if shot_type.startswith("3") else 2
 
 
+def team_labels(pbp: pd.DataFrame) -> dict[int, str]:
+    """Team id -> its most common non-blank tricode in this game's play-by-play,
+    the franchise's code as of the game (SEA in 1997-98, OKC from 2008-09)."""
+    t = pbp[["teamId", "teamTricode"]].dropna()
+    t = t.assign(teamTricode=t["teamTricode"].str.strip())
+    t = t[(t["teamId"] > 0) & (t["teamTricode"] != "")]
+    return {int(k): v.value_counts().idxmax() for k, v in t.groupby("teamId")["teamTricode"]}
+
+
+def make_rates(located: pd.DataFrame) -> dict[int, float]:
+    """The league's make rate by shot value (2 or 3) over a season's located shots."""
+    return {int(v): float(r) for v, r in located.groupby("value")["made"].mean().items()}
+
+
+def place_unlocated(un: pd.DataFrame, rates: dict[int, float]) -> pd.DataFrame:
+    """Give shots that have no location the xFG the league makes shots of their
+    value at (value column filled), and no coordinates."""
+    un = un.copy()
+    un["xfg"] = un["value"].map(rates)
+    un["xpts"] = un["xfg"] * un["value"]
+    un["x"] = np.nan
+    un["y"] = np.nan
+    return un
+
+
+def cm(values) -> list:
+    """Centimetres as ints, null where a shot has no location."""
+    return [None if v != v else int(v) for v in values]
+
+
+def shot_block(sh: pd.DataFrame, idx: dict) -> dict:
+    """A game's shots as columns, chronological. idx maps player id -> row of the game's p list."""
+    return {
+        "p": [idx[p] for p in sh["player_id"]],
+        "q": sh["period"].astype(int).tolist(),
+        "c": sh["sec"].astype(int).tolist(),
+        "x": cm(sh["x"]),
+        "y": cm(sh["y"]),
+        "m": "".join(str(int(m)) for m in sh["made"]),
+        "v": "".join(str(int(v)) for v in sh["value"]),
+        "e": np.rint(sh["xfg"].to_numpy(dtype=float) * 1000).astype(int).tolist(),
+    }
+
+
+def ft_block(fts: pd.DataFrame, idx: dict) -> dict:
+    """A game's free throws as columns, in play order; e is the shooter's shrunk FT% in thousandths."""
+    return {
+        "p": [idx[p] for p in fts["pid"]],
+        "q": fts["period"].astype(int).tolist(),
+        "c": fts["sec"].astype(int).tolist(),
+        "m": "".join("1" if m else "0" for m in fts["made"]),
+        "e": np.rint(fts["pct"].to_numpy(dtype=float) * 1000).astype(int).tolist(),
+    }
+
+
 def read_game(path: Path, home: int, away: int) -> dict:
     """One cached play-by-play: the final points, each free throw (side, period,
-    seconds left, shooter, made) and a name for every player it mentions."""
+    seconds left, shooter, made), a name for every player it mentions, the
+    tricode of each team and the value of every field goal by (event, shooter)."""
     pbp = pd.read_parquet(path, columns=PBP_COLS)
-    # 11 cached 2000-01 games (0020000374-389) pad actionType with trailing spaces.
+    # 11 cached 2000-01 games (0020000374-389) pad actionType with spaces (the reconstruction gate proves it).
     ft = pbp[pbp["actionType"].str.strip() == "Free Throw"]
     side = np.select([ft["teamId"] == home, ft["teamId"] == away], [0, 1], default=-1)
     named = pbp[(pbp["personId"] > 0) & (pbp["playerName"] != "")]
+    fg = pbp[pbp["isFieldGoal"] == 1]
     return {
         "points": game_points(pbp),
         "ft": pd.DataFrame({
@@ -109,32 +174,44 @@ def read_game(path: Path, home: int, away: int) -> dict:
             "made": [ft_made(d) for d in ft["description"]],
         }),
         "names": dict(zip(named["personId"], named["playerName"])),
+        "labels": team_labels(pbp),
+        "fg_value": dict(zip(zip(fg["actionNumber"], fg["personId"]), fg["shotValue"])),
     }
 
 
-def load_shots(conn, season: str) -> pd.DataFrame:
-    """The season's shots with their xFG, in game order, with the shooter's side
-    (0 home, 1 away) and shot value. Coordinates become centimetres."""
-    df = pd.read_sql(
-        """SELECT s.game_id, s.event_id, s.player_id, s.team_id, s.period,
-                  s.seconds_remaining_in_period AS sec, s.shot_made AS made,
-                  s.shot_x, s.shot_y, s.shot_type, x.xfg, x.xpts,
-                  g.home_team_id, g.away_team_id
-           FROM shots s
-           JOIN shots_xfg x ON x.game_id = s.game_id AND x.event_id = s.event_id
-           JOIN games g ON g.GAME_ID = s.game_id
-           WHERE g.season = ?""", conn, params=(season,))
-    side =np.select([df["team_id"] == df["home_team_id"], df["team_id"] == df["away_team_id"]],
+def _with_side(df: pd.DataFrame, season: str) -> pd.DataFrame:
+    side = np.select([df["team_id"] == df["home_team_id"], df["team_id"] == df["away_team_id"]],
                      [0, 1], default=-1)
     if (side < 0).any():
         raise ValueError(f"{season}: {(side < 0).sum()} shots by a team that is not in its game")
     df["side"] = side
-    df["value"] = df["shot_type"].map(shot_value)
-    df["x"] = np.rint(df["shot_x"] * CM_PER_TENTH_FOOT).astype(int)
-    df["y"] = np.rint(df["shot_y"] * CM_PER_TENTH_FOOT).astype(int)
     df["sec"] = np.rint(df["sec"]).astype(int)
-    return df.sort_values(["game_id", "period", "sec", "event_id"],
-                          ascending=[True, True, False, True], kind="stable")
+    return df
+
+
+def load_shots(conn, season: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(located, unlocated) shots of the season. Located: with their xFG, shot
+    value and coordinates in centimetres. Unlocated: in shots but with no row in
+    shots_xfg (the shot-chart feed gave no location); value is NaN where the feed
+    gave no shot type either. Both carry the shooter's side (0 home, 1 away)."""
+    base = """SELECT s.game_id, s.event_id, s.player_id, s.team_id, s.period,
+                     s.seconds_remaining_in_period AS sec, s.shot_made AS made,
+                     s.shot_x, s.shot_y, s.shot_type, x.xfg, x.xpts,
+                     g.home_team_id, g.away_team_id
+              FROM shots s
+              {join} JOIN shots_xfg x ON x.game_id = s.game_id AND x.event_id = s.event_id
+              JOIN games g ON g.GAME_ID = s.game_id
+              WHERE g.season = ?{where}"""
+    located = _with_side(pd.read_sql(base.format(join="", where=""), conn, params=(season,)), season)
+    located["value"] = located["shot_type"].map(shot_value)
+    located["x"] = np.rint(located["shot_x"] * CM_PER_TENTH_FOOT)
+    located["y"] = np.rint(located["shot_y"] * CM_PER_TENTH_FOOT)
+    unlocated = _with_side(pd.read_sql(
+        base.format(join="LEFT", where=" AND x.xfg IS NULL"), conn, params=(season,)), season)
+    unlocated["value"] = unlocated["shot_type"].map(lambda t: shot_value(t) if isinstance(t, str) else np.nan)
+    chrono = lambda d: d.sort_values(["game_id", "period", "sec", "event_id"],
+                                     ascending=[True, True, False, True], kind="stable")
+    return chrono(located), unlocated
 
 
 def export_season(conn, season: str, pbp_files: dict) -> dict:
@@ -145,8 +222,10 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
         "SELECT GAME_ID AS game_id, GAME_DATE, home_team_id, away_team_id "
         "FROM games WHERE season = ? ORDER BY GAME_DATE, GAME_ID", conn, params=(season,))
     games["date"] = pd.to_datetime(games["GAME_DATE"]).dt.date
-    shots = load_shots(conn, season)
-    shots_by_game = {g: d for g, d in shots.groupby("game_id", sort=False)}
+    located, unlocated = load_shots(conn, season)
+    rates = make_rates(located)
+    shots_by_game = {g: d for g, d in located.groupby("game_id", sort=False)}
+    unlocated_by_game = {g: d for g, d in unlocated.groupby("game_id", sort=False)}
 
     ft_season = pd.read_sql(
         "SELECT player_id, ftm, fta FROM player_season_ft WHERE season = ?", conn, params=(season,))
@@ -169,15 +248,15 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
     rows, chunks = [], {}
     wins, home_won = [], []
     xpts_sum = act_sum = 0.0
-    out = {"no_pbp": 0, "no_shots": 0, "no_team": 0, "mismatch": 0}
-    name_fallbacks = 0
+    out = {"no_pbp": 0, "no_shots": 0, "no_team": 0, "no_value": 0, "side": 0, "mismatch": 0}
+    n_unlocated = name_fallbacks = 0
 
     for g in games.itertuples(index=False):
         gid, home, away = g.game_id, int(g.home_team_id), int(g.away_team_id)
         if gid not in pbp_files:
             out["no_pbp"] += 1
             continue
-        if gid not in shots_by_game:
+        if gid not in shots_by_game and gid not in unlocated_by_game:
             out["no_shots"] += 1
             continue
         pbp = read_game(pbp_files[gid], home, away)
@@ -186,7 +265,26 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
             out["no_team"] += 1
             continue
         fts["pct"] = fts["pid"].map(ft_pct).fillna(unseen_pct)
-        sh = shots_by_game[gid]
+
+        sh = shots_by_game.get(gid, located.iloc[:0])[SHOT_COLS]
+        un = unlocated_by_game.get(gid)
+        if un is not None:
+            # No shot type in the feed: the play-by-play's own shot value, by event and shooter.
+            value = [v if v == v else pbp["fg_value"].get((e, p), np.nan)
+                     for v, e, p in zip(un["value"], un["event_id"], un["player_id"])]
+            if any(v != v for v in value):
+                out["no_value"] += 1
+                continue
+            un = place_unlocated(un.assign(value=np.array(value, dtype=int)), rates)
+            sh = pd.concat([sh, un[SHOT_COLS]] if len(sh) else [un[SHOT_COLS]], ignore_index=True)
+            sh = sh.sort_values(["period", "sec", "event_id"], ascending=[True, False, True], kind="stable")
+
+        # A player has one side: the team of his shots, which his free throws must agree with.
+        side_of = dict(zip(sh["player_id"], sh["side"]))
+        if any(side_of.setdefault(p, s) != s for p, s in zip(fts["pid"], fts["side"])):
+            out["side"] += 1
+            continue
+
         tot = side_totals(sh, fts)
         hs, as_ = pbp["points"]
         if (tot[0]["fg"] + tot[0]["ftm"], tot[1]["fg"] + tot[1]["ftm"]) != (hs, as_):
@@ -195,15 +293,22 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
 
         xpts_sum += float(sh["xpts"].sum())
         act_sum += tot[0]["fg"] + tot[1]["fg"]
+        n_unlocated += 0 if un is None else len(un)
         share = win_share(sh, fts, seed=zlib.crc32(f"{LEAGUE}{gid}".encode()))
         wins.append(share)
         home_won.append(1.0 if hs > as_ else 0.0 if hs < as_ else 0.5)
 
-        # Player lines: FG from the same table the form chart reads, FT from the pbp.
-        side_of = dict(zip(sh["player_id"], sh["side"]))
-        side_of.update(zip(fts["pid"], fts["side"]))
-        line = {int(r.player_id): [int(r.fga), int(round(r.act_fg_pts)), round(float(r.exp_fg_pts), 2), 0, 0]
-                for r in lines_by_game[gid].itertuples()}
+        # Player lines: FG from the table the form chart reads plus unlocated shots, FT from the pbp.
+        line = {int(r.player_id): [int(r.fga), int(round(r.act_fg_pts)), float(r.exp_fg_pts), 0, 0]
+                for r in lines_by_game[gid].itertuples()} if gid in lines_by_game else {}
+        for pid in sh["player_id"]:
+            line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
+        if un is not None:
+            for pid, made, value, xfg in zip(un["player_id"], un["made"], un["value"], un["xfg"]):
+                row = line[int(pid)]
+                row[0] += 1
+                row[1] += int(made) * int(value)
+                row[2] += float(xfg)
         for pid, made in zip(fts["pid"], fts["made"]):
             row = line.setdefault(int(pid), [0, 0, 0.0, 0, 0])
             row[3] += 1
@@ -215,8 +320,9 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
             else:
                 name = pbp["names"][pid]
                 name_fallbacks += 1
-            players.append([str(pid), name, int(side_of[pid]), fga, pts, xpts, fta, ftm])
+            players.append([str(pid), name, int(side_of[pid]), fga, pts, round(xpts, 2), fta, ftm])
         players.sort(key=lambda p: (p[2], -(p[4] + p[7]), p[0]))
+        idx = {int(p[0]): i for i, p in enumerate(players)}
 
         refs = []
         if gid in meta.index:
@@ -227,20 +333,13 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
 
         wk = week_key(g.date)
         chunks.setdefault(wk, {})[gid] = {
-            "p": players,
-            "s": list(map(list, zip(
-                sh["side"].tolist(), sh["player_id"].astype(str).tolist(), sh["period"].tolist(),
-                sh["sec"].tolist(), sh["x"].tolist(), sh["y"].tolist(), sh["made"].tolist(),
-                sh["value"].tolist(), sh["xfg"].round(3).tolist()))),
-            "f": list(map(list, zip(
-                fts["side"].tolist(), fts["pid"].astype(str).tolist(), fts["period"].tolist(),
-                fts["sec"].tolist(), fts["made"].astype(int).tolist(),
-                fts["pct"].round(3).tolist()))),
-            "r": refs,
+            "p": players, "s": shot_block(sh, idx), "f": ft_block(fts, idx), "r": refs,
         }
+        labels = pbp["labels"]
         rows.append({
             "id": gid, "d": g.date.isoformat(), "wk": wk,
-            "h": str(home), "a": str(away), "hl": TEAM_ABBREV[home], "al": TEAM_ABBREV[away],
+            "h": str(home), "a": str(away),
+            "hl": labels.get(home) or TEAM_ABBREV[home], "al": labels.get(away) or TEAM_ABBREV[away],
             "s": [hs, as_],
             "x": [round(tot[0]["xfg"] + tot[0]["xft"], 1), round(tot[1]["xfg"] + tot[1]["xft"], 1)],
             "share": share,
@@ -250,7 +349,7 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
     return {
         "season": season, "rows": rows, "chunks": chunks, "wins": wins, "home_won": home_won,
         "excluded": excluded, "why": out, "total": len(games), "name_fallbacks": name_fallbacks,
-        "anchor": (xpts_sum - act_sum) / act_sum,
+        "unlocated": n_unlocated, "anchor": (xpts_sum - act_sum) / act_sum,
     }
 
 
@@ -273,6 +372,7 @@ def main() -> int:
         why = ", ".join(f"{k} {v}" for k, v in r["why"].items() if v)
         print(f"{s}: {len(r['rows'])} games, {r['excluded']} excluded ({frac:.2%})"
               f"{' [' + why + ']' if why else ''}, FG anchor {r['anchor']:+.2%}"
+              f"{', unlocated shots in ' + str(r['unlocated']) if r['unlocated'] else ''}"
               f"{', names from pbp ' + str(r['name_fallbacks']) if r['name_fallbacks'] else ''}",
               flush=True)
         if frac > MAX_EXCLUDED:
