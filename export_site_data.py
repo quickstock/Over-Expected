@@ -3,7 +3,8 @@
 Sources (all clean / leak-free):
   - player_season_xfta_poss_lb_clean  -> leaderboard
   - possessions + predictions_poss_clean + games -> per-player per-game
-    [actual, expected, possessions] series (game index order = game_id order)
+    [actual, expected, possessions, FG pts, expected FG pts, game id] series
+    (game index order = game_id order; the id keys the game's page)
   - training_fga + shots -> charged-FGA shot zones per player-season
   - predictions_poss_clean -> league distribution inputs + calibration bins
 
@@ -231,7 +232,7 @@ for (pid, season) in qual_keys:
         g = pg_grouped.get_group((pid, season))
         entry["games"] = [
             [int(a), round(float(x), 3), int(n),
-             *fg_by_key.get((pid, gid, season), (0.0, 0.0))]
+             *fg_by_key.get((pid, gid, season), (0.0, 0.0)), str(gid)]
             for a, x, n, gid in zip(g["actual"], g["xfta"], g["poss"], g["game_id"])
         ]
     except KeyError:
