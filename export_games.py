@@ -22,13 +22,18 @@ before they moved), falling back to config.TEAM_ABBREV.
 A game is published only when its events rebuild the official final: each
 side's made field goals at their value plus its made free throws must equal
 the final score (the larger of the stamped scores, which never decrease).
-A game that does not is left out and counted.
+A game that does not is left out and counted. (meta.forfeits is always 0 here: it
+exists so the NBA and European indexes carry one schema; Euro_OE skips games with
+no events at all and counts them there.)
 
 Gates (exit 1, nothing written):
   * no more than max(1% of a season's games, 3) left out;
   * expected FG points within 0.5% of actual FG points per season (2% for the
     in-progress season: the anchor is on makes, not points, so a season a few
     games old drifts in points while every completed season sits inside 0.5%).
+    The anchor measures the shots that have a model xFG: unlocated shots carry
+    an imputed league rate instead, which tests nothing, so they stay in every
+    total and player line but out of the anchor.
 Calibration of the win share is not a failure: when the pooled ECE is not
 under 0.05, or a decile with 100+ games is more than 8 points from its mean,
 the win share is withheld (meta.winShare false, w null) and the pages show the
@@ -341,6 +346,7 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
         fts["pct"] = fts["pid"].map(ft_pct).fillna(unseen_pct)
 
         sh = shots_by_game.get(gid, located.iloc[:0])[SHOT_COLS]
+        priced = sh    # the shots with a model xFG: the anchor's
         un = unlocated_by_game.get(gid)
         if un is not None:
             # No shot type in the feed: the play-by-play's own shot value, by event and shooter.
@@ -365,8 +371,8 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
             out["mismatch"] += 1
             continue
 
-        xpts_sum += float(sh["xpts"].sum())
-        act_sum += tot[0]["fg"] + tot[1]["fg"]
+        xpts_sum += float(priced["xpts"].sum())
+        act_sum += float((priced["value"] * priced["made"]).sum())
         n_unlocated += 0 if un is None else len(un)
         share = win_share(sh, fts, seed=zlib.crc32(f"{LEAGUE}{gid}".encode()))
         wins.append(share)
@@ -395,7 +401,8 @@ def export_season(conn, season: str, pbp_files: dict) -> dict:
     excluded = sum(out.values())
     return {
         "season": season, "rows": rows, "chunks": chunks, "wins": wins, "home_won": home_won,
-        "excluded": excluded, "why": out, "total": len(games), "name_fallbacks": name_fallbacks,
+        "excluded": excluded, "why": out, "total": len(games), "forfeits": 0,
+        "name_fallbacks": name_fallbacks,
         "unlocated": n_unlocated, "anchor": (xpts_sum - act_sum) / act_sum,
     }
 
@@ -446,7 +453,8 @@ def main() -> int:
     for r in results:
         files[f"games-{LEAGUE}-{r['season']}.json"] = dump({
             "meta": {"league": LEAGUE, "season": r["season"], "winShare": ok,
-                     "ece": round(ece, 4), "excluded": r["excluded"], "games": len(r["rows"])},
+                     "ece": round(ece, 4), "excluded": r["excluded"], "forfeits": r["forfeits"],
+                     "games": len(r["rows"])},
             "games": [{**{k: v for k, v in g.items() if k != "share"},
                        "w": int(round(100 * g["share"])) if ok else None} for g in r["rows"]],
         })

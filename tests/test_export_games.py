@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from export_games import (anchor_tolerance, cm, export_season, ft_block, ft_made, game_points,
+from export_games import (FG_TOL, anchor_tolerance, cm, export_season, ft_block, ft_made, game_points,
                           left_out_limit, make_rates, officials, place_unlocated, sec_left,
                           shooter_sides, shot_block, shot_value, team_labels)
 
@@ -214,6 +214,9 @@ def synthetic_pbp(path):
 def test_export_season_assembles_the_contract(tmp_path):
     r = export_season(synthetic_conn(), SEASON, synthetic_pbp(tmp_path / f"{GID}.parquet"))
     assert r["excluded"] == 0 and r["total"] == 1 and r["unlocated"] == 2 and r["name_fallbacks"] == 1
+    assert r["forfeits"] == 0
+    # the anchor is the five shots with a model xFG: 5.28 expected against 7 scored
+    assert r["anchor"] == pytest.approx((5.28 - 7) / 7)
     (row,) = r["rows"]
     # index row: ids as strings, the pbp's own tricode with TEAM_ABBREV as the fallback, x to 0.1
     assert {k: v for k, v in row.items() if k != "share"} == {
@@ -243,3 +246,21 @@ def test_export_season_xfg_points_of_players_tie_to_the_side(tmp_path):
     # player 101's expected FG points are 1.0 off what his shots in shots_xfg are worth
     with pytest.raises(ValueError, match="expected FG points"):
         export_season(synthetic_conn(exp_101=3.2), SEASON, synthetic_pbp(tmp_path / f"{GID}.parquet"))
+
+
+def test_the_anchor_leaves_out_imputed_shots(tmp_path):
+    # Re-price the five located shots so their expected points equal the 7 they scored exactly
+    # (1.8 + 1.5 + 2.1 + 1.2 + 0.4); players' game lines follow. The two unlocated shots, imputed at the
+    # league rate (1.5 + 4/3 expected, 3 scored), would put the season 1.7% under the anchor.
+    conn = synthetic_conn()
+    for event, xfg, value in ((1, 0.9, 2), (2, 0.5, 3), (3, 0.7, 3), (4, 0.6, 2), (5, 0.2, 2)):
+        conn.execute("UPDATE shots_xfg SET xfg = ?, xpts = ? WHERE event_id = ?", (xfg, xfg * value, event))
+    for player, exp in ((101, 3.3), (201, 2.1), (202, 1.6)):
+        conn.execute("UPDATE player_game_shot_value SET exp_fg_pts = ? WHERE player_id = ?", (exp, player))
+    r = export_season(conn, SEASON, synthetic_pbp(tmp_path / f"{GID}.parquet"))
+    assert r["anchor"] == pytest.approx(0, abs=1e-9)
+    assert abs(r["anchor"]) <= anchor_tolerance(SEASON)
+    # the imputed shots are still in every player line: all five players' xFgPts fall short of their points
+    lines = r["chunks"]["2025-10-27"][GID]["p"]
+    all_in = (sum(p[5] for p in lines) - sum(p[4] for p in lines)) / sum(p[4] for p in lines)
+    assert all_in < -FG_TOL
