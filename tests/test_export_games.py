@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from export_games import (FG_TOL, anchor_tolerance, cm, export_season, ft_block, ft_made, game_points,
-                          left_out_limit, make_rates, officials, place_unlocated, sec_left,
+from export_games import (FG_TOL, anchor_failure, anchor_tolerance, cm, export_season, ft_block, ft_made, game_points,
+                          left_out_limit, make_rates, officials, place_unlocated, player_lines, sec_left,
                           shooter_sides, shot_block, shot_value, team_labels)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -117,9 +117,21 @@ def test_anchor_tolerance_only_loosens_for_the_live_in_progress_season(monkeypat
     monkeypatch.setattr(config, "ERA", "live")
     monkeypatch.setattr(config, "CURRENT_SEASON", "2026-27")
     assert anchor_tolerance("2026-27") == 0.02
-    assert anchor_tolerance("2025-26") == 0.005
+    assert anchor_tolerance("2025-26") == 0.01
     monkeypatch.setattr(config, "ERA", "archive")
-    assert anchor_tolerance("2026-27") == 0.005
+    assert anchor_tolerance("2026-27") == 0.01
+
+
+def test_the_anchor_gate_needs_100_games_and_bars_1_or_2_percent(monkeypatch):
+    # ruling 22: under 100 included games (an empty season included) the anchor is not gated
+    monkeypatch.setattr(config, "ERA", "live")
+    monkeypatch.setattr(config, "CURRENT_SEASON", "2026-27")
+    assert anchor_failure("2025-26", 99, 0.05) is None
+    assert anchor_failure("2025-26", 0, None) is None
+    assert anchor_failure("2025-26", 100, 0.0099) is None
+    assert anchor_failure("2025-26", 100, -0.011) == "FG anchor -1.10% outside +-1%"
+    assert anchor_failure("2026-27", 150, 0.019) is None
+    assert anchor_failure("2026-27", 150, 0.021) == "FG anchor +2.10% outside +-2%"
 
 
 # --- helpers extracted from export_season ------------------------------------
@@ -162,7 +174,8 @@ def synthetic_conn(exp_101=2.2):
         CREATE TABLE player_season_ft (player_id INTEGER, season TEXT, ftm INTEGER, fta INTEGER);
         CREATE TABLE player_game_shot_value (player_id INTEGER, game_id TEXT, season TEXT, fga INTEGER,
                                              act_fg_pts REAL, exp_fg_pts REAL);
-        CREATE TABLE game_meta (game_id TEXT PRIMARY KEY, ref1_id INTEGER, ref1_name TEXT, ref2_id INTEGER,
+        CREATE TABLE game_meta (game_id TEXT PRIMARY KEY, home_team_id INTEGER, away_team_id INTEGER,
+                                ref1_id INTEGER, ref1_name TEXT, ref2_id INTEGER,
                                 ref2_name TEXT, ref3_id INTEGER, ref3_name TEXT);
     """)
     conn.execute("INSERT INTO games VALUES (?, ?, '2025-10-29 00:00:00', ?, ?)", (GID, SEASON, HOME, AWAY))
@@ -182,7 +195,7 @@ def synthetic_conn(exp_101=2.2):
     conn.executemany("INSERT INTO player_season_ft VALUES (?,?,?,?)", [(103, SEASON, 80, 100), (999, SEASON, 70, 100)])
     conn.executemany("INSERT INTO player_game_shot_value VALUES (?,?,?,?,?,?)", [
         (101, GID, SEASON, 2, 2.0, exp_101), (201, GID, SEASON, 1, 3.0, 1.08), (202, GID, SEASON, 2, 2.0, 1.2 + 0.8)])
-    conn.execute("INSERT INTO game_meta VALUES (?, 11, 'Ref A', 12, 'Ref B', NULL, NULL)", (GID,))
+    conn.execute("INSERT INTO game_meta VALUES (?, ?, ?, 11, 'Ref A', 12, 'Ref B', NULL, NULL)", (GID, HOME, AWAY))
     return conn
 
 
@@ -264,3 +277,43 @@ def test_the_anchor_leaves_out_imputed_shots(tmp_path):
     lines = r["chunks"]["2025-10-27"][GID]["p"]
     all_in = (sum(p[5] for p in lines) - sum(p[4] for p in lines)) / sum(p[4] for p in lines)
     assert all_in < -FG_TOL
+
+
+def test_sides_come_from_game_meta_not_the_games_table(tmp_path):
+    # games.home_team_id is the first team the pbp names; here it names the away team. The game
+    # still publishes, with game_meta's home and away (the pbp's scoreHome is game_meta's home).
+    conn = synthetic_conn()
+    conn.execute("UPDATE games SET home_team_id = ?, away_team_id = ?", (AWAY, HOME))
+    r = export_season(conn, SEASON, synthetic_pbp(tmp_path / f"{GID}.parquet"))
+    assert r["excluded"] == 0
+    (row,) = r["rows"]
+    assert (row["h"], row["a"], row["hl"], row["al"], row["s"]) == (str(HOME), str(AWAY), "SEA", "LAL", [6, 5])
+
+
+def test_a_game_with_no_pbp_file_is_left_out_without_reading_its_sides(tmp_path):
+    # a failed pbp pull leaves games.home_team_id NULL; the game is left out as no_pbp, not a crash
+    conn = synthetic_conn()
+    conn.execute("UPDATE games SET home_team_id = NULL, away_team_id = NULL")
+    r = export_season(conn, SEASON, {})
+    assert r["why"]["no_pbp"] == 1 and r["excluded"] == 1 and r["rows"] == []
+    assert r["anchor"] is None
+    assert anchor_failure(SEASON, len(r["rows"]), r["anchor"]) is None
+
+
+def test_a_game_with_no_game_meta_sides_is_left_out_as_no_meta(tmp_path):
+    conn = synthetic_conn()
+    conn.execute("UPDATE game_meta SET home_team_id = NULL, away_team_id = NULL")
+    r = export_season(conn, SEASON, synthetic_pbp(tmp_path / f"{GID}.parquet"))
+    assert r["why"]["no_meta"] == 1 and r["rows"] == []
+
+
+def test_player_lines_must_rebuild_the_official_final():
+    sh = pd.DataFrame({"player_id": [101, 201]})
+    fts = pd.DataFrame({"pid": [101], "made": [True]})
+    pgsv = pd.DataFrame({"player_id": [101, 201], "fga": [1, 1], "act_fg_pts": [2.0, 3.0],
+                         "exp_fg_pts": [1.0, 1.1]})
+    args = ("g1", sh, None, fts, pgsv, {101: 0, 201: 1}, {101: "A", 201: "B"}, {}, {0: 1.0, 1: 1.1})
+    players, _ = player_lines(*args, (3, 3))
+    assert [p[0] for p in players] == ["101", "201"]
+    with pytest.raises(ValueError, match="g1: side 1 players' FG points \\+ FTM 3 differ from the official final 4"):
+        player_lines(*args, (3, 4))
