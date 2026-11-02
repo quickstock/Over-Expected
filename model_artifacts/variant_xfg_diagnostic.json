@@ -1,0 +1,63 @@
+{
+  "qualifyFga": 300,
+  "nPlayerSeasons": 1617,
+  "nPlayers": 523,
+  "sdRawPer100": 9.782,
+  "sdExpectedPer100": 7.785,
+  "varianceShare": 0.6335,
+  "oeVsRaw": {
+    "pearson": 0.6424,
+    "pearsonCI": [
+      0.5846,
+      0.6987
+    ],
+    "spearman": 0.6644
+  },
+  "reliability": {
+    "raw": {
+      "splitHalfR": 0.6018,
+      "fullSeasonR": 0.7514,
+      "paddingK": 223,
+      "meanHalfFga": 336,
+      "nPlayerSeasons": 1617
+    },
+    "oe": {
+      "splitHalfR": 0.5047,
+      "fullSeasonR": 0.6708,
+      "paddingK": 330,
+      "meanHalfFga": 336,
+      "nPlayerSeasons": 1617
+    },
+    "rawYoy": {
+      "meanR": 0.6327,
+      "perPair": [
+        0.67,
+        0.655,
+        0.631,
+        0.62,
+        0.588
+      ]
+    },
+    "oeYoy": {
+      "meanR": 0.5882,
+      "perPair": [
+        0.599,
+        0.56,
+        0.593,
+        0.611,
+        0.578
+      ]
+    }
+  },
+  "heightGradient": {
+    "raw": 0.3571,
+    "expected": 0.5003,
+    "oe": -0.048
+  },
+  "verdict": "shot-making PASSES the diagnostic that foul-drawing failed",
+  "comparisonToFoulDrawing": {
+    "varianceShare": 0.0093,
+    "oeVsRawPearson": 0.9953,
+    "heightGradient": 0.3913
+  }
+}
