@@ -50,3 +50,9 @@ model_artifacts/gate_a_test_full.csv
 _v3_archive/
 .env
 .env.*
+
+# Game pages: generated per run, rebuilt by export_games.py
+site/public/games-*.json
+site/public/gameweek-*.json
+site/public-archive/games-*.json
+site/public-archive/gameweek-*.json
