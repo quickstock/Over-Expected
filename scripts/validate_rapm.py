@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import DB_PATH
+from config import DB_PATH, layer_seasons
 
 CORE = Path(__file__).resolve().parent.parent / "site" / "public" / "rapm-NBA.json"
 REQUIRED_META = {
@@ -34,7 +34,12 @@ def main():
     fails = []
     con = sqlite3.connect(DB_PATH)
 
-    total = con.execute("SELECT COUNT(*) FROM games").fetchone()[0]
+    # Only the seasons the layers fit: a newer season's games are in `games`
+    # but deliberately have no stints until the site rolls over to it.
+    seasons = layer_seasons()
+    total = con.execute(
+        f"SELECT COUNT(*) FROM games WHERE season IN ({','.join('?' * len(seasons))})",
+        seasons).fetchone()[0]
     kept = con.execute(
         "SELECT COUNT(DISTINCT game_id) FROM possession_lineups").fetchone()[0]
     cov = kept / total
