@@ -118,7 +118,9 @@ for season in data["meta"]["seasons"]:
         lines.append(f"{season}: null pct inside qualified pool")
         continue
     lo, hi = min(pcts), max(pcts)
-    if lo > 2 or hi < 98:
+    # The lowest rank in a pool of n sits at about 100/n, so an early season
+    # with a handful of qualified players cannot reach ~0 (14 players -> 7.1).
+    if lo > max(2, 100 / len(pcts) + 0.5) or hi < 98:
         ok4 = False
     lines.append(f"{season}: pct range {lo}-{hi}, n={len(pcts)}")
 unqual_with_pct = sum(
